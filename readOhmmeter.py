@@ -16,17 +16,18 @@ inst = rm.open_resource(available_devs[int(device_index)])
 inst.timeout = 5000
 inst.read_termination = '\r'
 
-buf_size = 10
+buf_size = 20
 res_vals = []
 sample_times = []
 time_difs = []
 i = 0
 
-start_time = time.time()
+
 mode = input("Press 'm' for manual mode any key for auto mode: ")
 if mode == 'm':
     while(i < buf_size):
         ready = input("Press 'y' to continue take next sample: ")
+        start_time = time.time()
         if ready == 'y':
             t_s = time.time()
             res_vals.append(float((inst.query(":MEASure:RESistance? (@101)")).strip()[1:-4]))
@@ -38,6 +39,7 @@ if mode == 'm':
             break
         ready = ''
 else:
+        start_time = time.time()
         while(i < buf_size):
             t_s = time.time()
             current_res = inst.query(":MEASure:RESistance? (@101)")
