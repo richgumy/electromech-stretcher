@@ -32,7 +32,7 @@ import time
 #   return OUTPUT
 
 # Set g-code
-g_code_stream = ['$$','?']
+g_code_stream = ['$102=1','?']
 
 def list_devices():
     """
@@ -41,6 +41,7 @@ def list_devices():
     OUTPUT: List of available comports
     NOTES: Requires 'import serial.tools.list_ports'
     """
+    print("Fetching list of devices...")
     avail_devs = serial.tools.list_ports.comports()
     devs_list = []
     for i in range(len(avail_devs)):
@@ -50,24 +51,28 @@ def list_devices():
 avail_devs = list_devices()
 print(avail_devs)
 device_index = int(input("Which device from the list (eg. index 0 or 1 or 2 or ...):"))
-s = serial.Serial(avail_devs[device_index],115200) # Connect to port. GRBL operates at 115200 baud
+s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
 
 # Wake up grbl
-s.write("\r\n\r\n")
+s.write("\r\n\r\n".encode())
 time.sleep(2)   # Wait for grbl to initialize
 s.flushInput()  # Flush startup text in serial input
 
 # Stream g-code to grbl
-for i in len(g_code_stream):
+for i in range(len(g_code_stream)):
     msg = g_code_stream[i]
     print ('Sending: ' + msg)
-    s.write(msg.encode()) # encode msg then send g-code to grbl
-    grbl_out = s.readline() # Wait for grbl response with carriage return
+    s.write((msg+'\n').encode()) # encode msg then send g-code to grbl
+    print("Sent.")
+    grbl_out = s.readline().decode() # Wait for grbl response with carriage return
     print (' : ' + grbl_out.strip())
+    while grbl_out:
+            grbl_out = s.read().decode() # Wait for grbl response with carriage return
+            print (' : ' + grbl_out.strip())
     time.sleep(1)
 
 # Wait here until grbl is finished to close serial port and file.
-raw_input("  Press <Enter> to exit and disable grbl.")
+input("Press <Enter> to exit and stop serial communications.")
 
 # Close serial port
 s.close()
