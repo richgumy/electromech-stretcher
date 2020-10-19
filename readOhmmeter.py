@@ -4,38 +4,14 @@ import pyvisa
 import serial
 import time
 
-# Ideas/issues for speeding up serial comms:
-# 1 - change trigger count (TRIG COUNT 1) to get rid of timeout error
-# 2 - FORUM POST[Is there any way, so that I can set instrument in continuous
-# scan mode and I read data periodically (say at interval of 100ms).
-# > I tried same with IOMonitor, if I send INIT+FETCH with Command Expert, it
-# takes 1ms + 1.3ms, but my code is taking ~180ms, why there is such difference?]
-# 3 - Change param using SCPI cmd :
-# :ROUT:SCAN (@101)
-# :ROUT:CHAN:DEL 0,(@101) -> delay between samples min =0 max = 60s
-# :SENSE:VOLT:DC:RANG 10000000,(@101) -> Set ranging (Auto is slower?)
-# :SENS:VOLT:DC:APER .0004,(@101) -> Set aperture time to min? = 400us
-# :SENSE:VOLT:DC:APER 0.00001,(@101) -> Set sample time 100ms
-# :TRIG:COUNT 1
-# :INIT
-# FETCH?
-# Additional read information:
-# :FORM:READ:TIME ON
-# :FORM:READ:TIME:TYPE REL or ABS
-# Go through "Agilent 34970a Quick Reference Guide" document
-#
-
-
-# Setup Serial arduino connection
-ardSerial = serial.Serial()
 
 # Setup 34970a connection
 rm = pyvisa.ResourceManager()
 available_devs = rm.list_resources()
 print(available_devs)
-# device_index = input("Which device from the list (eg. index 0 or 1 or 2 or ...):")
-# inst = rm.open_resource(available_devs[int(device_index)])
-inst = rm.open_resource(available_devs[2])
+device_index = input("Which device from the list (eg. index 0 or 1 or 2 or ...):")
+inst = rm.open_resource(available_devs[int(device_index)])
+# inst = rm.open_resource(available_devs[2]) # comment if port unknown
 inst.baud_rate = 115200
 inst.timeout = 5000
 # inst.read_termination = '\r'
