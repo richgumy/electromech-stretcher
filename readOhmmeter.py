@@ -15,9 +15,9 @@ inst = rm.open_resource(available_devs[int(device_index)])
 inst.baud_rate = 115200
 inst.timeout = 5000
 # inst.read_termination = '\r'
-inst.write(":CONF:RES 10000000,1000,(@101)") #set PLC to 0.02 for 400us integration time... or higher for better noise suppression
-print("Resistance range set to 10MOhm, 1kOhm resolution")
-print(inst.query(":CONF? (@101)"))
+inst.write(":CONF:RES 10000000,1000,(@101)") 
+# print("Resistance range set to 10MOhm, 1kOhm resolution")
+# print(inst.query(":CONF? (@101)"))
 
 inst.write(":ROUT:CHAN:DEL 0,(@101)")
 # print("delay set 0")

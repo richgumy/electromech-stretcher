@@ -1,10 +1,12 @@
 """
-FILE: g-code_sender.py
+FILE: g-main.py
 AUTHOR: R Ellingham
 DATE: Oct 2020
-PROGRAM DESC: A script to send g-code commands to an arduino device with GRBL
-loaded via a USB serial connection. Specific task for this application are to
-send velocity profiles and gather real time data for displacement derviatives.
+PROGRAM DESC: Gather data from a stretched conductive elastomer in real time using
+serial communication. Writing the data to a CSV file ready for analysis
+
+Parameters measured:
+-> Resistance, Strain, Force, and Time (for each individual measurement)
 
 TODO:
 1) Make functions for all desired serial requests/commands
@@ -17,7 +19,9 @@ import serial
 import serial.tools.list_ports
 import time
 import re
+import pyvisa
 
+### Linear actuator functions:
 def write_g(serial_handle, msg):
     """
     DESCR: Sends encoded message to serial_handle device
@@ -68,9 +72,12 @@ def init_motion_params(serial_handle, max_accel="50", units="mm", steps_p_mm="25
     DESCR: Sets linear actuator limits and params
     IN_PARAMS: max. acceleration, position units, steps per 1mm displacement, linear motion control mode", relative or absolute displacement
     OUTPUT: N/A
-    NOTES:    Requires serial
-              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
+    NOTES:  Requires serial library
+            Requires time library
+            Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
     """
+    write_g(serial_handle, "\r\n\r\n") # Wake up grbl
+    time.sleep(2)   # Wait for grbl to initialize
     serial_handle.flushInput()
     #set acceleration
     write_g(serial_handle,"$122="+max_accel)
@@ -131,15 +138,12 @@ def read_pos(serial_handle):
     serial_handle.flushInput()
     return current_position
 
-# Set g-code velocity profile stream
-g_code_stream = ['$102=250','F300','G21','G91','G0','Z-10']
-
 def list_serial_devices():
     """
     DESCR: Creates list of the names of all currrently connected serial comport devices
     IN_PARAMS: N/A
     OUTPUT: List of available comports
-    NOTES: Requires "import serial.tools.list_ports"
+    NOTES: Requires serial.tools.list_ports library
     """
     print("Fetching list of devices...")
     avail_devs = serial.tools.list_ports.comports()
@@ -148,19 +152,63 @@ def list_serial_devices():
         devs_list.append(avail_devs[i].device)
     return devs_list
 
-def main():
-    # avail_devs = list_serial_devices()
-    # print(avail_devs)
-    # device_index = int(input("Which device from the list (eg. index 0 or 1 or 2 or ...):"))
-    # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
-    s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of
 
+
+### Ohmmeter data acquisition functions:
+def init_ohmmeter_params(ohmmeter_handle):
+    """
+    DESCR: Initialise parameters for ohmmeter
+    IN_PARAMS: N/A
+    OUTPUT: N/A
+    NOTES:  Requires pyvisa library
+    TODO: Add input params
+    """
+    ohmmeter.baud_rate = 115200
+    ohmmeter.timeout = 5000
+
+    ohmmeter.write(":CONF:RES 10000000,1000,(@101)") #set range and resolution of resistance measurements
+    ohmmeter.write(":ROUT:CHAN:DEL 0,(@101)") #set delay between scans
+    ohmmeter.write(":SENS:RES:NPLC 1,(@101)") #set PLC(i.e. 50Hz power line cycle for NZ) to 0.02 for 400us integration time... or higher for better noise suppression
+    ohmmeter.write("ROUT:SCAN (@101)") # Set scan channel
+    ohmmeter.write(":TRIG:COUNT 1") # Set number of measurements taken each scan
+
+    return 0
+
+
+
+### Load cell data acquisition functions:
+
+
+
+
+## Data processing fucntions:
+def write_all_to_CSV(resistance, time_R, displacement, time_d, force, time_f):
+    with open('data.csv', 'w', newline='') as csvfile:
+        data = csv.writer(csvfile, delimiter=',')
+        for i in range(len(time_R)):
+            data.writerow([resistance[i], time_R[i], displacement[i], time_d[i], force[i], time_f[i])
+    return 0
+
+def main():
+    ## Setup grbl serial coms:
+    avail_devs = list_serial_devices()
+    print(avail_devs)
+    device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
+    s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
+    # s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
-    # Wake up grbl
-    write_g(s, "\r\n\r\n")
-    time.sleep(2)   # Wait for grbl to initialize
-    s.flushInput()  # Flush startup text in serial input
     init_motion_params(s) # Init Grbl
+
+    ## Setup 34970a connection
+    rm = pyvisa.ResourceManager()
+    available_devs = rm.list_resources()
+    print(available_devs)
+    device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
+    ohmmeter = rm.open_resource(available_devs[int(device_index)])
+    # ohmmeter = rm.open_resource(available_devs[2]) # comment if port unknown
+    print("Connecting to 34970a DAQ unit...")
+    init_ohmmeter_params(ohmmeter)
+
 
     print("Sending motion command...")
     # Send desired motion g-code to grbl
@@ -171,10 +219,16 @@ def main():
     time_data = []
     start_time = time.time()
     for i in range(100):
+        # Read position
         current_pos = read_pos(s)
         current_time = time.time() - start_time
         pos_data.append(current_pos)
         time_data.append(current_time)
+
+        # Read resistance
+        
+        # Read force
+
         time.sleep(0.01)
     print(pos_data)
     plt.plot(time_data, pos_data,'ro')
