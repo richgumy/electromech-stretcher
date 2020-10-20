@@ -171,7 +171,7 @@ def main():
     time_data = []
     start_time = time.time()
     for i in range(100):
-        current_pos = read_pos(s)
+        current_pos = read_pos(s) # TODO: read_pos takes time
         current_time = time.time() - start_time
         pos_data.append(current_pos)
         time_data.append(current_time)

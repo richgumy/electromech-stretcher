@@ -20,6 +20,10 @@ import serial.tools.list_ports
 import time
 import re
 import pyvisa
+import nidaqmx
+from nidaqmx.constants import LineGrouping
+from nidaqmx.constants import Edge
+from nidaqmx.constants import AcquisitionType
 
 ### Linear actuator functions:
 def write_g(serial_handle, msg):
@@ -163,21 +167,44 @@ def init_ohmmeter_params(ohmmeter_handle):
     NOTES:  Requires pyvisa library
     TODO: Add input params
     """
-    ohmmeter.baud_rate = 115200
-    ohmmeter.timeout = 5000
+    ohmmeter_handle.baud_rate = 115200
+    ohmmeter_handle.timeout = 5000
 
-    ohmmeter.write(":CONF:RES 10000000,1000,(@101)") #set range and resolution of resistance measurements
-    ohmmeter.write(":ROUT:CHAN:DEL 0,(@101)") #set delay between scans
-    ohmmeter.write(":SENS:RES:NPLC 1,(@101)") #set PLC(i.e. 50Hz power line cycle for NZ) to 0.02 for 400us integration time... or higher for better noise suppression
-    ohmmeter.write("ROUT:SCAN (@101)") # Set scan channel
-    ohmmeter.write(":TRIG:COUNT 1") # Set number of measurements taken each scan
+    ohmmeter_handle.write(":CONF:RES 10000000,1000,(@101)") #set range and resolution of resistance measurements
+    ohmmeter_handle.write(":ROUT:CHAN:DEL 0,(@101)") #set delay between scans
+    ohmmeter_handle.write(":SENS:RES:NPLC 1,(@101)") #set PLC(i.e. 50Hz power line cycle for NZ) to 0.02 for 400us integration time... or higher for better noise suppression
+    ohmmeter_handle.write("ROUT:SCAN (@101)") # Set scan channel
+    ohmmeter_handle.write(":TRIG:COUNT 1") # Set number of measurements taken each scan
 
     return 0
 
 
 
 ### Load cell data acquisition functions:
-
+def init_loadcell_params(loadcell_handle):
+    """
+    DESCR: Initialise parameters for loadcell
+    IN_PARAMS: N/A
+    OUTPUT: N/A
+    NOTES:  Requires nidaqmx & nidaqmx.constants libraries
+    TODO: Add input params
+    """
+    #adding ABRITRARY linear table of values for load cell reading, got lazy and will scale later
+    loadcell_handle.ai_channels.add_ai_force_bridge_table_chan("cDAQ2Mod3/ai3",
+        name_to_assign_to_channel="10kgLoadcell",
+        min_val=-5.0e-3, max_val=5.0e-3,
+        bridge_config=nidaqmx.constants.BridgeConfiguration.FULL_BRIDGE,
+        voltage_excit_source= nidaqmx.constants.ExcitationSource.INTERNAL,
+        voltage_excit_val=2.5, nominal_bridge_resistance=1000.0,
+        electrical_vals= [0, 1, 2, 3, 4],
+        electrical_units=nidaqmx.constants.BridgeElectricalUnits.M_VOLTS_PER_VOLT,
+        physical_vals=[-1, 0, 1, 2, 3],
+        physical_units=nidaqmx.constants.BridgePhysicalUnits.NEWTONS,
+        custom_scale_name=None)
+    loadcell_handle.timing.cfg_samp_clk_timing(100, source="",
+        active_edge=Edge.RISING, sample_mode=AcquisitionType.FINITE,
+        samps_per_chan=5)
+    return 0
 
 
 
@@ -186,56 +213,105 @@ def write_all_to_CSV(resistance, time_R, displacement, time_d, force, time_f):
     with open('data.csv', 'w', newline='') as csvfile:
         data = csv.writer(csvfile, delimiter=',')
         for i in range(len(time_R)):
-            data.writerow([resistance[i], time_R[i], displacement[i], time_d[i], force[i], time_f[i])
+            data.writerow([resistance[i], time_R[i], displacement[i], time_d[i],
+                force[i], time_f[i]])
     return 0
 
 def main():
     ## Setup grbl serial coms:
-    avail_devs = list_serial_devices()
-    print(avail_devs)
-    device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
-    s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
-    # s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    # avail_devs = list_serial_devices()
+    # print(avail_devs)
+    # device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
+    # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
+    s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 
     ## Setup 34970a connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    print(available_devs)
-    device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
-    ohmmeter = rm.open_resource(available_devs[int(device_index)])
-    # ohmmeter = rm.open_resource(available_devs[2]) # comment if port unknown
+    # print(available_devs)
+    # device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
+    # ohmmeter = rm.open_resource(available_devs[int(device_index)])
+    ohmmeter = rm.open_resource(available_devs[7]) # comment if port unknown
     print("Connecting to 34970a DAQ unit...")
     init_ohmmeter_params(ohmmeter)
 
+    ## Setup loadcell connection
+    loadcell = nidaqmx.Task()
+    init_loadcell_params(loadcell)
 
-    print("Sending motion command...")
-    # Send desired motion g-code to grbl
-    linear_travel(s, "150", "10")
-
-    print("Reading position data...")
+    # Initialise lists for storing measurement data
     pos_data = []
-    time_data = []
-    start_time = time.time()
+    time_data_pos = []
+
+    res_data = []
+    time_data_res = []
+    avg_time_data_res = []
+
+    force_data = []
+    time_data_force = []
+
+    # TODO: user input jog mode parsing error handler
+    jog_input = input("Enter jog input in mm. Enter 'q' to set zero(start) position:")
+    while (jog_input != "q"):
+        linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
+        jog_input = input(">>")
+
+    # set new zero
+    write_g(s,"G10 P0 L20 X0 Y0 Z0")
+
+    # Send desired motion g-code to grbl
+    set_travel_input = input("How far shall we go?[mm] (negative for stretch): ")
+    set_speed_input = input("How zoomy shall we do the stretchy? [mm/min]: ")
+    linear_travel(s, set_speed_input, set_travel_input) # (s, "speed" , "dist")
+
+    # Begin measurement loop
+    print("Reading data...")
+    start_time = time.time() # ref time
+
     for i in range(100):
         # Read position
         current_pos = read_pos(s)
         current_time = time.time() - start_time
         pos_data.append(current_pos)
-        time_data.append(current_time)
+        time_data_pos.append(current_time)
 
         # Read resistance
-        
-        # Read force
+        t_s = time.time()
+        ohmmeter.write(":INIT") # Begin scan
+        time.sleep(0.002) # Wait for scan to finish
+        current_res = ohmmeter.query("R?")
+        while len(current_res) <= 4: # If scan not finished keep questioning until result appears
+            current_res = ohmmeter.query("R?")
+        current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
+        res_data.append(current_res)
+        t_f = time.time()
+        t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received
+        avg_time_data_res.append(t_avg)
+        t_d = t_f - t_s # How long did it take to receive the message from time of request
+        time_data_res.append(t_d)
 
-        time.sleep(0.01)
-    print(pos_data)
-    plt.plot(time_data, pos_data,'ro')
-    plt.yticks(range(1,int(max(pos_data)+max(pos_data)/10),int(max(pos_data)/10)))
+        # Read force
+        raw_data = loadcell.read(1) # read 1 data point
+        force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons
+        force_data.append(force)
+        current_time = time.time() - start_time
+        time_data_force.append(current_time)
+
+    # Write data to CSV file
+    write_all_to_CSV(res_data, avg_time_data_res, pos_data, time_data_pos,
+        force_data, time_data_force)
+
+    # Plot all data
+    plt.plot(avg_time_data_res, res_data,'ro')
+    plt.xlabel('Time[s]')
+    plt.ylabel('Resistance[Ohms]')
     plt.show()
+
+
     # Wait here until grbl is finished to close serial port and file.
-    input("Press <Enter> to exit and stop serial communications.")
+    input("Press <Enter> to exit and stop serial Grbl communications.")
 
     # Close serial port
     s.close()
