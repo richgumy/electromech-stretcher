@@ -1,7 +1,7 @@
-# Electromech-stretcher\
+# Electromech-stretcher
 Code for a stress/strain/resistivity simultaneous measurement device which reads/write serial data from a high impedance ohmmeter, a loadcell and a linear actuator.\
-\
-## Equipment setup:\
+
+## Equipment setup:
 *Item - Part number/model - Software/Hardware interface*\
 High impedance ohmmeter - Agilent HP 34970a - PyVISA/GPIB-USB-HS\
 Loadcell - TAL220 loadcell - NI-DAQmx python/NI9237\
