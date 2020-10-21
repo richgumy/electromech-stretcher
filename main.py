@@ -170,7 +170,7 @@ def init_ohmmeter_params(ohmmeter_handle):
     ohmmeter_handle.baud_rate = 115200
     ohmmeter_handle.timeout = 5000
 
-    ohmmeter_handle.write(":CONF:RES 10000000,1000,(@101)") #set range and resolution of resistance measurements
+    ohmmeter_handle.write(":CONF:RES AUTO,1000,(@101)") #set range and resolution of resistance measurements
     ohmmeter_handle.write(":ROUT:CHAN:DEL 0,(@101)") #set delay between scans
     ohmmeter_handle.write(":SENS:RES:NPLC 1,(@101)") #set PLC(i.e. 50Hz power line cycle for NZ) to 0.02 for 400us integration time... or higher for better noise suppression
     ohmmeter_handle.write("ROUT:SCAN (@101)") # Set scan channel
@@ -209,8 +209,8 @@ def init_loadcell_params(loadcell_handle):
 
 
 ## Data processing fucntions:
-def write_all_to_CSV(resistance, time_R, displacement, time_d, force, time_f):
-    with open('data.csv', 'w', newline='') as csvfile:
+def write_all_to_CSV(filename,resistance, time_R, displacement, time_d, force, time_f):
+    with open(filename+'.csv', 'w', newline='') as csvfile:
         data = csv.writer(csvfile, delimiter=',')
         for i in range(len(time_R)):
             data.writerow([resistance[i], time_R[i], displacement[i], time_d[i],
@@ -270,7 +270,12 @@ def main():
     print("Reading data...")
     start_time = time.time() # ref time
 
-    for i in range(100):
+    current_pos = 0 # init for while loop condition
+    lag = 0 # to capture data from just after the strain has stopped
+    lag_delay = 15
+    while (float(current_pos) != float(set_travel_input)) or (lag < lag_delay):
+        if float(current_pos) == float(set_travel_input):
+            lag = lag + 1
         # Read position
         current_pos = read_pos(s)
         current_time = time.time() - start_time
@@ -299,14 +304,58 @@ def main():
         current_time = time.time() - start_time
         time_data_force.append(current_time)
 
+    # Return to zero position and read data along the way TODO: fix this while loop!
+    linear_travel(s, set_speed_input, str(-1*float(set_travel_input))) # (s, "speed" , "dist")
+    while float(current_pos) != 0:
+        # Read position
+        current_pos = read_pos(s)
+        current_time = time.time() - start_time
+        pos_data.append(current_pos)
+        time_data_pos.append(current_time)
+
+        # Read resistance
+        t_s = time.time()
+        ohmmeter.write(":INIT") # Begin scan
+        time.sleep(0.002) # Wait for scan to finish
+        current_res = ohmmeter.query("R?")
+        while len(current_res) <= 4: # If scan not finished keep questioning until result appears
+            current_res = ohmmeter.query("R?")
+        current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
+        res_data.append(current_res)
+        t_f = time.time()
+        t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received
+        avg_time_data_res.append(t_avg)
+        t_d = t_f - t_s # How long did it take to receive the message from time of request
+        time_data_res.append(t_d)
+
+        # Read force
+        raw_data = loadcell.read(1) # read 1 data point
+        force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons
+        force_data.append(force)
+        current_time = time.time() - start_time
+        time_data_force.append(current_time)
+
+
     # Write data to CSV file
-    write_all_to_CSV(res_data, avg_time_data_res, pos_data, time_data_pos,
+    filename = input("CSV file name? (Caution will overwrite without warning): ")
+    write_all_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
         force_data, time_data_force)
 
+    # Data processing best line of fit?
+
+
     # Plot all data
-    plt.plot(avg_time_data_res, res_data,'ro')
-    plt.xlabel('Time[s]')
-    plt.ylabel('Resistance[Ohms]')
+    fig, (ax1, ax2, ax3) = plt.subplots(3)
+
+    ax1.plot(avg_time_data_res, res_data)
+    ax1.set(ylabel='Resistance[Ohm]')
+
+    ax2.plot(time_data_pos, pos_data)
+    ax2.set(ylabel='Position[mm]')
+
+    ax3.plot(time_data_force, force_data)
+    ax3.set(xlabel='Time[s]', ylabel='Force[N]')
+
     plt.show()
 
 
