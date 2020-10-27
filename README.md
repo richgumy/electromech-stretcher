@@ -5,5 +5,4 @@ Code for a stress/strain/resistivity simultaneous measurement device which reads
 *Item - Part number/model - Software/Hardware interface*\
 High impedance ohmmeter - Agilent HP 34970a - PyVISA/GPIB-USB-HS\
 Loadcell - TAL220 loadcell - NI-DAQmx python/NI9237\
-Linear actuator - V-Slot® NEMA 23 Linear Actuator Bundle (Lead Screw) 819368022902 - Grbl/Arduino nano
-
+Linear actuator - V-Slot® NEMA 23 Linear Actuator Bundle (Lead Screw) 819368022902 + G201X DIGITAL STEP DRIVE – Grbl/Arduino nano
