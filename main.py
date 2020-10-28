@@ -9,9 +9,8 @@ Parameters measured:
 -> Resistance, Strain, Force, and Time (for each individual measurement)
 
 TODO:
-1) Make functions for all desired serial requests/commands
-2) Ensure all significant time delays are accounted-for/read
-3)
+1) Complete data processing functions
+2) Minimise all instructions while data being recorded (post-process as muhc as possible)
 """
 import csv
 import matplotlib.pyplot as plt
@@ -304,7 +303,8 @@ def main():
         current_time = time.time() - start_time
         time_data_force.append(current_time)
 
-    # Return to zero position and read data along the way TODO: fix this while loop!
+    # Return to zero position and read data along the way
+    # TODO: fix this while loop condition!
     linear_travel(s, set_speed_input, str(-1*float(set_travel_input))) # (s, "speed" , "dist")
     while float(current_pos) != 0:
         # Read position
@@ -341,7 +341,11 @@ def main():
     write_all_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
         force_data, time_data_force)
 
-    # Data processing best line of fit?
+    # Data processing
+    # - Best line of fit and R-square values
+    # - FFT to see vibrations
+    # - Elastic modulus
+    # -
 
 
     # Plot all data
