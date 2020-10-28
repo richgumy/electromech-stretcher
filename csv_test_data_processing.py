@@ -75,13 +75,20 @@ ax.grid(True)
 
 # Plot stress over strain
 Stress = F_tot/(10e-3*4e-3) # force/cross-sectional-area
-Strain = -P_tot/30
+Strain = -P_tot/30 # dx/x
+print(Stress)
 # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
 A = np.vstack([Strain,np.ones(len(Strain))]).T
-Y, offset_error = np.linalg.lstsq(A, Stress, rcond=None)[0]
-Strain_lin = np.linspace(0.0, 0.5, 5)
+model = np.linalg.lstsq(A, Stress, rcond=None)
+Y, offset_error= model[0]
+resid = model[1]
+# Determine the R_square value between 0 and 1. 1 is a strong correlation
+R_sqr = 1 - resid/(Stress.size*Stress.var())
+print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Y, offset_error, R_sqr))
+
+Strain_lin = np.linspace(min(Strain),max(Strain) , 5)
 Stress_lin = Y * Strain_lin + offset_error
-print(Y,offset_error)
+
 
 plt.figure()
 ax2 = plt.plot(Strain,Stress,'x',Strain_lin,Stress_lin,'-')

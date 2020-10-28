@@ -11,6 +11,7 @@ Parameters measured:
 TODO:
 1) Complete data processing functions
 2) Minimise all instructions while data being recorded (post-process as muhc as possible)
+3) Make object oriented GUI
 """
 import csv
 import matplotlib.pyplot as plt
@@ -318,11 +319,16 @@ def main():
         ohmmeter.write(":INIT") # Begin scan
         time.sleep(0.002) # Wait for scan to finish
         current_res = ohmmeter.query("R?")
-        while len(current_res) <= 4: # If scan not finished keep questioning until result appears
+        time_out_R = 0;
+        while len(current_res) <= 4: # If scan not finished keep requesting until result appears
             current_res = ohmmeter.query("R?")
+            time_out_R = time_out_R + 1
+            if time_out_R > 10000:
+                print("Ohmmeter timeout error.")
+                break
         current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
-        res_data.append(current_res)
         t_f = time.time()
+        res_data.append(current_res)
         t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received
         avg_time_data_res.append(t_avg)
         t_d = t_f - t_s # How long did it take to receive the message from time of request
@@ -334,6 +340,9 @@ def main():
         force_data.append(force)
         current_time = time.time() - start_time
         time_data_force.append(current_time)
+
+
+    # Format data for processing
 
 
     # Write data to CSV file
@@ -349,18 +358,20 @@ def main():
 
 
     # Plot all data
-    fig, (ax1, ax2, ax3) = plt.subplots(3)
+    plot_q = input("Plot all data?")
+    if (plot_q == 'y'):
+        fig, (ax1, ax2, ax3) = plt.subplots(3)
 
-    ax1.plot(avg_time_data_res, res_data)
-    ax1.set(ylabel='Resistance[Ohm]')
+        ax1.plot(avg_time_data_res, res_data)
+        ax1.set(ylabel='Resistance[Ohm]')
 
-    ax2.plot(time_data_pos, pos_data)
-    ax2.set(ylabel='Position[mm]')
+        ax2.plot(time_data_pos, pos_data)
+        ax2.set(ylabel='Position[mm]')
 
-    ax3.plot(time_data_force, force_data)
-    ax3.set(xlabel='Time[s]', ylabel='Force[N]')
+        ax3.plot(time_data_force, force_data)
+        ax3.set(xlabel='Time[s]', ylabel='Force[N]')
 
-    plt.show()
+        plt.show()
 
 
     # Wait here until grbl is finished to close serial port and file.
