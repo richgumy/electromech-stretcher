@@ -4,6 +4,9 @@ AUTHOR: R Ellingham
 DATE: Oct 2020
 PROGRAM DESC: Process electromechanical data measured from a stretched
 conductive elastomer in real time.
+
+TODO:
+1) Make functions
 """
 import csv
 import matplotlib.pyplot as plt
@@ -17,6 +20,7 @@ tP = np.array([])
 F = np.array([])
 tF = np.array([])
 
+# Write to csv
 with open('testy2.csv', 'r', newline='') as csvfile:
     data = csv.reader(csvfile, delimiter=',')
     line_count = 0
@@ -78,7 +82,7 @@ Stress = F_tot/(10e-3*4e-3) # force/cross-sectional-area
 Strain = -P_tot/30 # dx/x
 print(Stress)
 # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
-A = np.vstack([Strain,np.ones(len(Strain))]).T
+A = np.vstack([Strain,nAp.ones(len(Strain))]).T
 model = np.linalg.lstsq(A, Stress, rcond=None)
 Y, offset_error= model[0]
 resid = model[1]
