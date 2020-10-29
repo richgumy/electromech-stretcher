@@ -6,7 +6,8 @@ PROGRAM DESC: Process electromechanical data measured from a stretched
 conductive elastomer in real time.
 
 TODO:
-1) Make functions
+1) Make functions for script
+2)
 """
 import csv
 import matplotlib.pyplot as plt
