@@ -325,9 +325,9 @@ def main():
             time_out_R = time_out_R + 1
             if time_out_R > 10000:
                 print("Ohmmeter timeout error.")
-                break
+                breakgg
         current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
-        t_f = time.time()
+        t_f = time.time()g
         res_data.append(current_res)
         t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received
         avg_time_data_res.append(t_avg)
