@@ -219,21 +219,21 @@ def write_all_to_CSV(filename,resistance, time_R, displacement, time_d, force, t
 
 def main():
     ## Setup grbl serial coms:
-    # avail_devs = list_serial_devices()
-    # print(avail_devs)
-    # device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
-    # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
-    s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    avail_devs = list_serial_devices()
+    print(avail_devs)
+    device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
+    s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
+    # s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 
     ## Setup 34970a connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    # print(available_devs)
-    # device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
-    # ohmmeter = rm.open_resource(available_devs[int(device_index)])
-    ohmmeter = rm.open_resource(available_devs[7]) # comment if port unknown
+    print(available_devs)
+    device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
+    ohmmeter = rm.open_resource(available_devs[int(device_index)])
+    # ohmmeter = rm.open_resource(available_devs[7]) # comment if port unknown
     print("Connecting to 34970a DAQ unit...")
     init_ohmmeter_params(ohmmeter)
 
