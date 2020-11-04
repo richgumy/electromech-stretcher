@@ -178,7 +178,23 @@ def init_ohmmeter_params(ohmmeter_handle):
 
     return 0
 
-
+def read_ohmmeter():
+    t_s = time.time()
+    ohmmeter.write(":INIT") # Begin scan
+    time.sleep(0.002) # Wait for scan to finish
+    current_res = ohmmeter.query("R?")
+    time_out_R = 0;
+    while len(current_res) <= 4: # If scan not finished keep requesting until result appears
+        current_res = ohmmeter.query("R?")
+        time_out_R = time_out_R + 1
+        if time_out_R > 10000:
+            print("Ohmmeter timeout error.")
+            break
+    current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
+    t_f = time.time()
+    t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received, assuming continuous integration
+    t_d = t_f - t_s # How long did it take to receive the message from time of request    
+    return current_res,
 
 ### Load cell data acquisition functions:
 def init_loadcell_params(loadcell_handle):
@@ -325,9 +341,9 @@ def main():
             time_out_R = time_out_R + 1
             if time_out_R > 10000:
                 print("Ohmmeter timeout error.")
-                breakgg
+                break
         current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
-        t_f = time.time()g
+        t_f = time.time()
         res_data.append(current_res)
         t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received
         avg_time_data_res.append(t_avg)
