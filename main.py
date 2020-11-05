@@ -25,6 +25,8 @@ from nidaqmx.constants import LineGrouping
 from nidaqmx.constants import Edge
 from nidaqmx.constants import AcquisitionType
 
+MAX_LOADCELL_FORCE = 100 # Maximum loadcell force in Newtons
+
 ### Linear actuator functions:
 def write_g(serial_handle, msg):
     """
@@ -201,7 +203,7 @@ def read_ohmmeter(ohmmeter_handle,start_time, timeout=10000):
     t_f = time.time()
     t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received, assuming continuous integration
     t_d = t_f - t_s # How long did it take to receive the message from time of request
-    return current_res, t_avg, t_d
+    return [current_res, t_avg, t_d]
 
 ### Load cell data acquisition functions:
 def init_loadcell_params(loadcell_handle):
@@ -275,15 +277,41 @@ def main():
     force_data = []
     time_data_force = []
 
+    compression_data = [["current_resistance", "measure_time", "time_taken", "thickness"]]
+    single_sided_electrode_data = [["current_resistance", "measure_time", "time_taken"]]
+
+    # Begin manual testing
+    test_specimen_num = input("Input test specimen num:")
+
     # Read compression data
-    res_input = input("Enter r to read resistance. Enter 'q' to go to next stage:")
-    while (res_input != "q"):
-        res_input = input(">>")
+    print("Electrode compression test")
+    print("==========================")
+    specimen_thickness = input("What is the approx. specimen thickness(in mm)?")
+    res_input = input("Press enter to read resistance for single-sided electrode test")
+    for i in range(5):
+        single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs (current_resistance, measure_time, time_taken)
+        print(" %.4f Ohms in %.4f s" % (single_sided_electrode_data[i+1][0], single_sided_electrode_data[i+1][2]))
+    compression_readings = 4
+    compression_read_count_loading = 0
+    compression_read_count_unloading = 0
+    res_input = 0
+    # Loading clamps with compressive strain
+    while ((res_input != "q") and (compression_read_count_loading != compression_readings)):
+        res_input = input("Turn each clamp bolt 1 CW revolution\nPress enter to read resistance or 'q' to quit to the next stage")
         for i in range(5):
-            current_resistance, measure_time, time_taken = read_ohmmeter(ohmmeter,0)
-            print(" %.4f Ohms in %.4f s" % (current_resistance, time_taken))
+            compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-i*0.5)) # 0.5mm pitch for M3 bolt
+            print(" %.4f Ohms in %.4f s" % (compression_data[i][0], compression_data[i][2], compression_data[i][3]))
+            compression_read_count_loading = compression_read_count_loading + 1
+    # Unloading clamps of compressive strain
+    while ((res_input != "q") and (compression_read_count_unloading != compression_readings)):
+        res_input = input("Now turn each clamp bolt 1 CCW revolution\nPress enter to read resistance or 'q' to quit to the next stage")
+        for i in range(5):
+            compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-float(compression_read_count_loading)*0.5+i*0.5)) # 0.5mm pitch for M3 bolt
+            print(" %.4f Ohms in %.4f s at %.2f" % (compression_data[i+compression_read_count_loading][0], compression_data[i+compression_read_count_loading][2], compression_data[i+compression_read_count_loading][3]))
+            compression_read_count_unloading = compression_read_count_unloading + 1
 
-
+    compression_filename = "compression_resistance_%s" % (test_specimen_num)
+    write_all_to_CSV(compression_filename, single_sided_electrode_data, compression_data)
 
     # TODO: make a parsing error handler for manual jog mode
     jog_input = input("Enter jog input in mm. Enter 'q' to set zero(start) position:")
@@ -324,6 +352,8 @@ def main():
         # Read force
         raw_data = loadcell.read(1) # read 1 data point
         force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons (waste of processing time)
+        if (force > MAX_LOADCELL_FORCE):
+            raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
         force_data.append(force)
         current_time = time.time() - start_time
         time_data_force.append(current_time)
