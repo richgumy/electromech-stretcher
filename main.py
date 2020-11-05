@@ -297,17 +297,17 @@ def main():
     res_input = 0
     # Loading clamps with compressive strain
     while ((res_input != "q") and (compression_read_count_loading != compression_readings)):
-        res_input = input("Turn each clamp bolt 1 CW revolution\nPress enter to read resistance or 'q' to quit to the next stage")
+        res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
         for i in range(5):
-            compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-i*0.5)) # 0.5mm pitch for M3 bolt
-            print(" %.4f Ohms in %.4f s" % (compression_data[i][0], compression_data[i][2], compression_data[i][3]))
+            print(compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-i*0.5))) # 0.5mm pitch for M3 bolt
             compression_read_count_loading = compression_read_count_loading + 1
+        print("Turn each clamp bolt 1 CW revolution")
     # Unloading clamps of compressive strain
     while ((res_input != "q") and (compression_read_count_unloading != compression_readings)):
         res_input = input("Now turn each clamp bolt 1 CCW revolution\nPress enter to read resistance or 'q' to quit to the next stage")
         for i in range(5):
-            compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-float(compression_read_count_loading)*0.5+i*0.5)) # 0.5mm pitch for M3 bolt
-            print(" %.4f Ohms in %.4f s at %.2f" % (compression_data[i+compression_read_count_loading][0], compression_data[i+compression_read_count_loading][2], compression_data[i+compression_read_count_loading][3]))
+            compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-float(compression_read_count_loading)*0.5+(i+1)*0.5)) # 0.5mm pitch for M3 bolt
+            print(" %.4f Ohms in %.4f s at %.2fmm" % (compression_data[i+compression_read_count_loading][0], compression_data[i+compression_read_count_loading][2], compression_data[i+compression_read_count_loading][3]))
             compression_read_count_unloading = compression_read_count_unloading + 1
 
     compression_filename = "compression_resistance_%s" % (test_specimen_num)
