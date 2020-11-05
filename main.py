@@ -178,23 +178,30 @@ def init_ohmmeter_params(ohmmeter_handle):
 
     return 0
 
-def read_ohmmeter():
+def read_ohmmeter(ohmmeter_handle,start_time, timeout=10000):
+    """
+    DESCR: Read ohmmeter resistance, will timeout if nothing recieved within timeout period (default 10s)
+    IN_PARAMS: Start time
+    OUTPUT: Current resistance reading, average time since start time, time taken for reading
+    NOTES:  Requgires pyvisa library
+    TODO: Add input params
+    """
     t_s = time.time()
-    ohmmeter.write(":INIT") # Begin scan
+    ohmmeter_handle.write(":INIT") # Begin scan
     time.sleep(0.002) # Wait for scan to finish
-    current_res = ohmmeter.query("R?")
+    current_res = ohmmeter_handle.query("R?")
     time_out_R = 0;
     while len(current_res) <= 4: # If scan not finished keep requesting until result appears
-        current_res = ohmmeter.query("R?")
+        current_res = ohmmeter_handle.query("R?")
         time_out_R = time_out_R + 1
         if time_out_R > 10000:
             print("Ohmmeter timeout error.")
             break
-    current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
+    current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:]) # Waste of processing time
     t_f = time.time()
     t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received, assuming continuous integration
-    t_d = t_f - t_s # How long did it take to receive the message from time of request    
-    return current_res,
+    t_d = t_f - t_s # How long did it take to receive the message from time of request
+    return current_res, t_avg, t_d
 
 ### Load cell data acquisition functions:
 def init_loadcell_params(loadcell_handle):
@@ -236,20 +243,20 @@ def write_all_to_CSV(filename,resistance, time_R, displacement, time_d, force, t
 def main():
     ## Setup grbl serial coms:
     avail_devs = list_serial_devices()
-    print(avail_devs)
-    device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
-    s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
-    # s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    # print(avail_devs)
+    # device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
+    # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
+    s = serial.Serial("COM8",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 
     ## Setup 34970a connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    print(available_devs)
-    device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
-    ohmmeter = rm.open_resource(available_devs[int(device_index)])
-    # ohmmeter = rm.open_resource(available_devs[7]) # comment if port unknown
+    # print(available_devs)
+    # device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
+    # ohmmeter = rm.open_resource(available_devs[int(device_index)])
+    ohmmeter = rm.open_resource(available_devs[3]) # comment if port unknown
     print("Connecting to 34970a DAQ unit...")
     init_ohmmeter_params(ohmmeter)
 
@@ -268,7 +275,17 @@ def main():
     force_data = []
     time_data_force = []
 
-    # TODO: user input jog mode parsing error handler
+    # Read compression data
+    res_input = input("Enter r to read resistance. Enter 'q' to go to next stage:")
+    while (res_input != "q"):
+        res_input = input(">>")
+        for i in range(5):
+            current_resistance, measure_time, time_taken = read_ohmmeter(ohmmeter,0)
+            print(" %.4f Ohms in %.4f s" % (current_resistance, time_taken))
+
+
+
+    # TODO: make a parsing error handler for manual jog mode
     jog_input = input("Enter jog input in mm. Enter 'q' to set zero(start) position:")
     while (jog_input != "q"):
         linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
@@ -299,70 +316,25 @@ def main():
         time_data_pos.append(current_time)
 
         # Read resistance
-        t_s = time.time()
-        ohmmeter.write(":INIT") # Begin scan
-        time.sleep(0.002) # Wait for scan to finish
-        current_res = ohmmeter.query("R?")
-        while len(current_res) <= 4: # If scan not finished keep questioning until result appears
-            current_res = ohmmeter.query("R?")
-        current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
+        current_res, t_avg, t_d = read_ohmmeter(ohmmeter, start_time)
         res_data.append(current_res)
-        t_f = time.time()
-        t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received
         avg_time_data_res.append(t_avg)
-        t_d = t_f - t_s # How long did it take to receive the message from time of request
         time_data_res.append(t_d)
 
         # Read force
         raw_data = loadcell.read(1) # read 1 data point
-        force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons
+        force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons (waste of processing time)
         force_data.append(force)
         current_time = time.time() - start_time
         time_data_force.append(current_time)
 
-    # Return to zero position and read data along the way
-    # TODO: fix this while loop condition!
-    linear_travel(s, set_speed_input, str(-1*float(set_travel_input))) # (s, "speed" , "dist")
-    while float(current_pos) != 0:
-        # Read position
-        current_pos = read_pos(s)
-        current_time = time.time() - start_time
-        pos_data.append(current_pos)
-        time_data_pos.append(current_time)
-
-        # Read resistance
-        t_s = time.time()
-        ohmmeter.write(":INIT") # Begin scan
-        time.sleep(0.002) # Wait for scan to finish
-        current_res = ohmmeter.query("R?")
-        time_out_R = 0;
-        while len(current_res) <= 4: # If scan not finished keep requesting until result appears
-            current_res = ohmmeter.query("R?")
-            time_out_R = time_out_R + 1
-            if time_out_R > 10000:
-                print("Ohmmeter timeout error.")
-                break
-        current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:])
-        t_f = time.time()
-        res_data.append(current_res)
-        t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received
-        avg_time_data_res.append(t_avg)
-        t_d = t_f - t_s # How long did it take to receive the message from time of request
-        time_data_res.append(t_d)
-
-        # Read force
-        raw_data = loadcell.read(1) # read 1 data point
-        force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons
-        force_data.append(force)
-        current_time = time.time() - start_time
-        time_data_force.append(current_time)
-
+    # TODO: Return to zero position and read data along the way
 
     # Format data for processing
 
 
     # Write data to CSV file
-    filename = input("CSV file name? (Caution will overwrite without warning): ")
+    filename = input("CSV file name? !Caution will overwrite files without warning!: ")
     write_all_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
         force_data, time_data_force)
 
