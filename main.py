@@ -13,6 +13,7 @@ TODO:
 2) Minimise all instructions while data being recorded (post-process as muhc as possible)
 3) Make object oriented GUI
 """
+
 import csv
 import matplotlib.pyplot as plt
 import serial
@@ -234,13 +235,49 @@ def init_loadcell_params(loadcell_handle):
 
 
 ## Data processing fucntions:
-def write_all_to_CSV(filename,resistance, time_R, displacement, time_d, force, time_f):
+def write_PosResForce_to_CSV(filename,resistance, time_R, displacement, time_d, force, time_f):
+    """
+    DESCR: Loads 6 columns of data into a filename.csv file
+    IN_PARAMS: resistance, displacement, force, and their timestamps
+    OUTPUT: N/A
+    NOTES:  Requires all inputs to be present to operate
+    TODO: Make more generalised function for different data logging
+    """
     with open(filename+'.csv', 'w', newline='') as csvfile:
         data = csv.writer(csvfile, delimiter=',')
         for i in range(len(time_R)):
             data.writerow([resistance[i], time_R[i], displacement[i], time_d[i],
                 force[i], time_f[i]])
     return 0
+
+def stringify_list(in_list, dimension=1):
+    """
+    DESCR: Turn all elements from a 1,2,or 3 dimension list into a string
+    IN_PARAMS: list, dimension of list
+    OUTPUT: new list of strings
+    NOTES:  Requires all evenly dimensioned list (e.g. couldn't have >>stringify_list([[1,2],1], 2))
+    TODO: Automatically detect dimension of input list
+    """
+    new_list1 = []
+    for i1 in range(len(in_list)):
+        if dimension > 1:
+            new_list2 = []
+            for i2 in range(len(in_list[i1])):
+                if dimension > 2:
+                    new_list3 = []
+                    for i3 in range(len(in_list[i1][i2])):
+                        new_list3.append(str(in_list[i1][i2][i3]))
+                    new_list2.append(new_list3)
+                else:
+                    new_list2.append(str(in_list[i1][i2]))
+            new_list1.append(new_list2)
+        else:
+            new_list1.append(str(in_list[i1]))
+    return new_list1
+
+
+
+
 
 def main():
     ## Setup grbl serial coms:
@@ -278,40 +315,62 @@ def main():
     time_data_force = []
 
     compression_data = [["current_resistance", "measure_time", "time_taken", "thickness"]]
-    single_sided_electrode_data = [["current_resistance", "measure_time", "time_taken"]]
+    single_sided_electrode_data = [["current_resistance(single electrode)", "measure_time(single electrode)", "time_taken(single electrode
 
     # Begin manual testing
+    start_time = time.time() # ref time for manual testing
     test_specimen_num = input("Input test specimen num:")
 
     # Read compression data
     print("Electrode compression test")
     print("==========================")
-    specimen_thickness = input("What is the approx. specimen thickness(in mm)?")
+    specimen_thickness = float(input("What is the approx. specimen thickness(in mm)?"))
     res_input = input("Press enter to read resistance for single-sided electrode test")
     for i in range(5):
-        single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs (current_resistance, measure_time, time_taken)
+        single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs [current_resistance, measure_time, time_taken]
         print(" %.4f Ohms in %.4f s" % (single_sided_electrode_data[i+1][0], single_sided_electrode_data[i+1][2]))
-    compression_readings = 4
-    compression_read_count_loading = 0
-    compression_read_count_unloading = 0
-    res_input = 0
-    # Loading clamps with compressive strain
-    while ((res_input != "q") and (compression_read_count_loading != compression_readings)):
-        res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
-        for i in range(5):
-            print(compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-i*0.5))) # 0.5mm pitch for M3 bolt
-            compression_read_count_loading = compression_read_count_loading + 1
-        print("Turn each clamp bolt 1 CW revolution")
-    # Unloading clamps of compressive strain
-    while ((res_input != "q") and (compression_read_count_unloading != compression_readings)):
-        res_input = input("Now turn each clamp bolt 1 CCW revolution\nPress enter to read resistance or 'q' to quit to the next stage")
-        for i in range(5):
-            compression_data.append(read_ohmmeter(ohmmeter,0).append(float(specimen_thickness)-float(compression_read_count_loading)*0.5+(i+1)*0.5)) # 0.5mm pitch for M3 bolt
-            print(" %.4f Ohms in %.4f s at %.2fmm" % (compression_data[i+compression_read_count_loading][0], compression_data[i+compression_read_count_loading][2], compression_data[i+compression_read_count_loading][3]))
-            compression_read_count_unloading = compression_read_count_unloading + 1
 
-    compression_filename = "compression_resistance_%s" % (test_specimen_num)
-    write_all_to_CSV(compression_filename, single_sided_electrode_data, compression_data)
+    num_compr_str = 4
+    num_compr_res_sample = 5
+    i_compr_ld = 0
+    i_compr_uld = 0
+    res_input = 0
+
+    # Loading clamps with compressive strain
+    while ((res_input != "q") and (i_compr_ld != num_compr_str)):
+        res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
+        for i in range(num_compr_res_sample):
+            compress_n_strain = read_ohmmeter(ohmmeter,0)
+            compress_n_strain.append(specimen_thickness)
+            compression_data.append(compress_n_strain)
+            print(compression_data[(i_compr_ld*num_compr_res_sample)+1+i])
+        specimen_thickness = specimen_thickness - 0.5 # 0.5mm pitch for M3 bolt
+        i_compr_ld = i_compr_ld + 1
+        print(i_compr_ld)
+        print("Turn each clamp bolt 1 CW revolution")
+
+    # Unloading clamps of compressive strain
+    while ((res_input != "q") and (i_compr_uld != num_compr_str)):
+        print("Now turn each clamp bolt 1 CCW revolution")
+        res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
+        for i in range(num_compr_res_sample):
+            compress_n_strain = read_ohmmeter(ohmmeter,0)
+            compress_n_strain.append(specimen_thickness)
+            compression_data.append(compress_n_strain)
+            print(compression_data[(i_compr_ld*num_compr_res_sample+i_compr_uld*num_compr_res_sample)+1+i])
+        specimen_thickness = specimen_thickness + 0.5 # 0.5mm pitch for M3 bolt
+        i_compr_uld = i_compr_uld + 1
+        print(i_compr_uld)
+
+    compression_filename = "compression_resistance_#%s" % (test_specimen_num)
+    with open(compression_filename+'.csv', 'w', newline='') as csvfile:
+        data = csv.writer(csvfile, delimiter=',')
+        print(compression_data)
+        for i in range(len(compression_data)):
+            if i <= 1:
+                data.writerow(stringify_list(compression_data[i],1)+stringify_list(single_sided_electrode_data[i],1))
+            else:
+                data.writerow(stringify_list(compression_data[i],1))
 
     # TODO: make a parsing error handler for manual jog mode
     jog_input = input("Enter jog input in mm. Enter 'q' to set zero(start) position:")
@@ -325,47 +384,47 @@ def main():
     # Send desired motion g-code to grbl
     set_travel_input = input("How far shall we go?[mm] (negative for stretch): ")
     set_speed_input = input("How zoomy shall we do the stretchy? [mm/min]: ")
-    linear_travel(s, set_speed_input, set_travel_input) # (s, "speed" , "dist")
+    # linear_travel(s, set_speed_input, set_travel_input) # (s, "speed" , "dist")
+
+    step_profile = [3,6,9,12] # travel 3mm, 6mm ... for strains of 10%, 20% ...
+    velocity_profile = [60,120,180,240] # set travel speeds in mm/s
 
     # Begin measurement loop
     print("Reading data...")
-    start_time = time.time() # ref time
+    start_time = time.time() # ref time reset for automated test procedure
+    for velocity in velocity_profile:
+        for step in step_profile:
+            linear_travel(s, set_speed_input, set_travel_input)
+            current_pos = 0 # init for while loop condition
+            lag = 0 # to capture data from just after the strain has stopped
+            lag_delay = 15
+            while (float(current_pos) != float(set_travel_input)) or (lag < lag_delay):
+                if float(current_pos) == float(set_travel_input):
+                    lag = lag + 1
+                # Read position
+                current_pos = read_pos(s)
+                current_time = time.time() - start_time
+                pos_data.append(current_pos)
+                time_data_pos.append(current_time)
 
-    current_pos = 0 # init for while loop condition
-    lag = 0 # to capture data from just after the strain has stopped
-    lag_delay = 15
-    while (float(current_pos) != float(set_travel_input)) or (lag < lag_delay):
-        if float(current_pos) == float(set_travel_input):
-            lag = lag + 1
-        # Read position
-        current_pos = read_pos(s)
-        current_time = time.time() - start_time
-        pos_data.append(current_pos)
-        time_data_pos.append(current_time)
+                # Read resistance
+                current_res, t_avg, t_d = read_ohmmeter(ohmmeter, start_time)
+                res_data.append(current_res)
+                avg_time_data_res.append(t_avg)
+                time_data_res.append(t_d)
 
-        # Read resistance
-        current_res, t_avg, t_d = read_ohmmeter(ohmmeter, start_time)
-        res_data.append(current_res)
-        avg_time_data_res.append(t_avg)
-        time_data_res.append(t_d)
-
-        # Read force
-        raw_data = loadcell.read(1) # read 1 data point
-        force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons (waste of processing time)
-        if (force > MAX_LOADCELL_FORCE):
-            raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
-        force_data.append(force)
-        current_time = time.time() - start_time
-        time_data_force.append(current_time)
-
-    # TODO: Return to zero position and read data along the way
-
-    # Format data for processing
-
+                # Read force
+                raw_data = loadcell.read(1) # read 1 data point
+                force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons (waste of processing time)
+                if (force > MAX_LOADCELL_FORCE):
+                    raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
+                force_data.append(force)
+                current_time = time.time() - start_time
+                time_data_force.append(current_time)
 
     # Write data to CSV file
     filename = input("CSV file name? !Caution will overwrite files without warning!: ")
-    write_all_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
+    write_PosResForce_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
         force_data, time_data_force)
 
     # Data processing
