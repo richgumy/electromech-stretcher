@@ -141,6 +141,7 @@ def read_pos(serial_handle):
     if re.search('[a-zA-Z]', current_position):
         current_position = 0
     else:
+        print("Position data handler:",current_position)
         current_position = float(current_position)
     serial_handle.flushInput()
     return current_position
@@ -408,8 +409,8 @@ def main():
             current_pos = 0 # init for while loop condition
             lag = 0 # to capture data from just after the strain has stopped
             lag_delay = 5
-            while ~((float(current_pos) != float(step)) and (lag < lag_delay)):
-                if float(current_pos) != float(step):
+            while ((float(current_pos) != float(step)) or (lag < lag_delay)):
+                if float(current_pos) == float(step):
                     lag = lag + 1
                 # Read position
                 current_pos = read_pos(s)
@@ -463,6 +464,7 @@ def main():
         ax3.set(xlabel='Time[s]', ylabel='Force[N]')
 
         plt.show()
+        plt.savefig(filename)
 
 
     # Wait here until grbl is finished to close serial port and file.
