@@ -1,5 +1,5 @@
 """
-FILE: g-main.py
+FILE: main.py
 AUTHOR: R Ellingham
 DATE: Oct 2020
 PROGRAM DESC: Gather data from a stretched conductive elastomer in real time using
@@ -116,12 +116,12 @@ def linear_travel(serial_handle, lin_speed="60", displacement="1"):
     DESCR: Sends linear motion step to lin actuator
     IN_PARAMS: linear speed in mm/min, displacement in mm.
     OUTPUT: N/A
-    NOTES:    Requires serial library
+    NOTES:    Requires serial library and Grbl
               Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
     """
     serial_handle.flushInput()
     #set speed and displacement
-    write_g(serial_handle,"G21G1"+"Z"+displacement+"F"+lin_speed)
+    write_g(serial_handle,"G21G1"+"F"+str(lin_speed)+"Z"+str(displacement))
     return 0
 
 def read_pos(serial_handle):
@@ -315,52 +315,59 @@ def main():
     time_data_force = []
 
     compression_data = [["current_resistance", "measure_time", "time_taken", "thickness"]]
-    single_sided_electrode_data = [["current_resistance(single electrode)", "measure_time(single electrode)", "time_taken(single electrode
+    single_sided_electrode_data = [["current_resistance(single electrode)", "measure_time(single electrode)", "time_taken(single electrode"]]
 
     # Begin manual testing
     start_time = time.time() # ref time for manual testing
     test_specimen_num = input("Input test specimen num:")
 
-    # Read compression data
-    print("Electrode compression test")
-    print("==========================")
     specimen_thickness = float(input("What is the approx. specimen thickness(in mm)?"))
-    res_input = input("Press enter to read resistance for single-sided electrode test")
-    for i in range(5):
-        single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs [current_resistance, measure_time, time_taken]
-        print(" %.4f Ohms in %.4f s" % (single_sided_electrode_data[i+1][0], single_sided_electrode_data[i+1][2]))
+    compressed_thickness = input("Enter the compressed test thickness of the test specimen(mm):")
 
-    num_compr_str = 4
-    num_compr_res_sample = 5
-    i_compr_ld = 0
-    i_compr_uld = 0
-    res_input = 0
+    compress_test_ans = input("Compression resistivity test?(y or n):")
+    if compress_test_ans == 'y':
+        # Read compression data
+        print("Electrode compression test")
+        print("==========================")
+        res_input = input("Press enter to read resistance for single-sided electrode test")
+        for i in range(5):
+            single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs [current_resistance, measure_time, time_taken]
+            print(" %.4f Ohms in %.4f s" % (single_sided_electrode_data[i+1][0], single_sided_electrode_data[i+1][2]))
 
-    # Loading clamps with compressive strain
-    while ((res_input != "q") and (i_compr_ld != num_compr_str)):
-        res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
-        for i in range(num_compr_res_sample):
-            compress_n_strain = read_ohmmeter(ohmmeter,0)
-            compress_n_strain.append(specimen_thickness)
-            compression_data.append(compress_n_strain)
-            print(compression_data[(i_compr_ld*num_compr_res_sample)+1+i])
-        specimen_thickness = specimen_thickness - 0.5 # 0.5mm pitch for M3 bolt
-        i_compr_ld = i_compr_ld + 1
-        print(i_compr_ld)
-        print("Turn each clamp bolt 1 CW revolution")
+        num_compr_str = 4
+        num_compr_res_sample = 5
+        i_compr_ld = 0
+        i_compr_uld = 0
+        res_input = 0
 
-    # Unloading clamps of compressive strain
-    while ((res_input != "q") and (i_compr_uld != num_compr_str)):
-        print("Now turn each clamp bolt 1 CCW revolution")
-        res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
-        for i in range(num_compr_res_sample):
-            compress_n_strain = read_ohmmeter(ohmmeter,0)
-            compress_n_strain.append(specimen_thickness)
-            compression_data.append(compress_n_strain)
-            print(compression_data[(i_compr_ld*num_compr_res_sample+i_compr_uld*num_compr_res_sample)+1+i])
-        specimen_thickness = specimen_thickness + 0.5 # 0.5mm pitch for M3 bolt
-        i_compr_uld = i_compr_uld + 1
-        print(i_compr_uld)
+        # Loading clamps with compressive strain
+        while ((res_input != "q") and (i_compr_ld != num_compr_str)):
+            res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
+            for i in range(num_compr_res_sample):
+                compress_n_strain = read_ohmmeter(ohmmeter,0)
+                compress_n_strain.append(specimen_thickness)
+                compression_data.append(compress_n_strain)
+                print(compression_data[(i_compr_ld*num_compr_res_sample)+1+i])
+            specimen_thickness = specimen_thickness - 0.5 # 0.5mm pitch for M3 bolt
+            i_compr_ld = i_compr_ld + 1
+            print(i_compr_ld)
+            print("Turn each clamp bolt 1 CW revolution")
+
+        # Unloading clamps of compressive strain
+        while ((res_input != "q") and (i_compr_uld != num_compr_str)):
+            print("Now turn each clamp bolt 1 CCW revolution")
+            res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
+            for i in range(num_compr_res_sample):
+                compress_n_strain = read_ohmmeter(ohmmeter,0)
+                compress_n_strain.append(specimen_thickness)
+                compression_data.append(compress_n_strain)
+                print(compression_data[(i_compr_ld*num_compr_res_sample+i_compr_uld*num_compr_res_sample)+1+i])
+            specimen_thickness = specimen_thickness + 0.5 # 0.5mm pitch for M3 bolt
+            i_compr_uld = i_compr_uld + 1
+            print(i_compr_uld)
+
+
+    format_compr_list = [["Specimen thickness:",specimen_thickness],["Test compressed thickness:",compressed_thickness]]
 
     compression_filename = "compression_resistance_#%s" % (test_specimen_num)
     with open(compression_filename+'.csv', 'w', newline='') as csvfile:
@@ -368,7 +375,7 @@ def main():
         print(compression_data)
         for i in range(len(compression_data)):
             if i <= 1:
-                data.writerow(stringify_list(compression_data[i],1)+stringify_list(single_sided_electrode_data[i],1))
+                data.writerow(stringify_list(compression_data[i],1)+stringify_list(single_sided_electrode_data[i],1)+stringify_list(format_compr_list[i],1))
             else:
                 data.writerow(stringify_list(compression_data[i],1))
 
@@ -379,27 +386,30 @@ def main():
         jog_input = input(">>")
 
     # set new zero
+    write_g(s,"G90")
     write_g(s,"G10 P0 L20 X0 Y0 Z0")
 
     # Send desired motion g-code to grbl
-    set_travel_input = input("How far shall we go?[mm] (negative for stretch): ")
-    set_speed_input = input("How zoomy shall we do the stretchy? [mm/min]: ")
+    # set_travel_input = input("How far shall we go?[mm] (negative for stretch): ")
+    # set_speed_input = input("How zoomy shall we do the stretchy? [mm/min]: ")
     # linear_travel(s, set_speed_input, set_travel_input) # (s, "speed" , "dist")
 
-    step_profile = [3,6,9,12] # travel 3mm, 6mm ... for strains of 10%, 20% ...
+    step_profile = [-3,-6,-9,-12,-9,-6,-3,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
     velocity_profile = [60,120,180,240] # set travel speeds in mm/s
 
     # Begin measurement loop
     print("Reading data...")
+    step_counter = 0
     start_time = time.time() # ref time reset for automated test procedure
     for velocity in velocity_profile:
         for step in step_profile:
-            linear_travel(s, set_speed_input, set_travel_input)
+            linear_travel(s, velocity, step)
+            print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
             current_pos = 0 # init for while loop condition
             lag = 0 # to capture data from just after the strain has stopped
-            lag_delay = 15
-            while (float(current_pos) != float(set_travel_input)) or (lag < lag_delay):
-                if float(current_pos) == float(set_travel_input):
+            lag_delay = 5
+            while ~((float(current_pos) != float(step)) and (lag < lag_delay)):
+                if float(current_pos) != float(step):
                     lag = lag + 1
                 # Read position
                 current_pos = read_pos(s)
@@ -421,6 +431,10 @@ def main():
                 force_data.append(force)
                 current_time = time.time() - start_time
                 time_data_force.append(current_time)
+                print(current_pos)
+            step_counter = step_counter + 1
+            print("Step complete", step_counter)
+
 
     # Write data to CSV file
     filename = input("CSV file name? !Caution will overwrite files without warning!: ")
