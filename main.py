@@ -174,7 +174,7 @@ def init_ohmmeter_params(ohmmeter_handle):
     ohmmeter_handle.baud_rate = 115200
     ohmmeter_handle.timeout = 5000
 
-    ohmmeter_handle.write(":CONF:RES AUTO,1000,(@101)") #set range and resolution of resistance measurements
+    ohmmeter_handle.write(":CONF:RES 10000000,1000,(@101)") #set range and resolution of resistance measurements
     ohmmeter_handle.write(":ROUT:CHAN:DEL 0,(@101)") #set delay between scans
     ohmmeter_handle.write(":SENS:RES:NPLC 1,(@101)") #set PLC(i.e. 50Hz power line cycle for NZ) to 0.02 for 400us integration time... or higher for better noise suppression
     ohmmeter_handle.write("ROUT:SCAN (@101)") # Set scan channel
