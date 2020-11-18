@@ -11,8 +11,19 @@ TODO:
 """
 import csv
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MaxNLocator
+from matplotlib import cm # colour map
 import numpy as np
+
+def diff_data(x,t):
+    dx_dt = []
+    dx_dt.append((x[1]-x[0])/(t[1]-t[0])) # Slightly erroneous first value to maintain len(x) == len(dx_dt)
+    for i in range(1,len(x)-1):
+        dx_dt.append(((x[i]-x[i-1])/(t[i]-t[i-1])+(x[i+1]-x[i])/(t[i+1]-t[i]))/2)
+    dx_dt.append((x[len(x)-1]-x[len(x)-2])/(t[len(x)-1]-t[len(x)-2])) # Slightly erroneous final value to maintain len(x) == len(dx_dt)
+    return dx_dt
+
 
 def main(input_filename):
     R = np.array([])
@@ -65,44 +76,84 @@ def main(input_filename):
     Strain = -P/30
     Strain_tot = -P_tot/30 # dx/x
 
+    # Differentiate displacement w.r.t. time
+    V_tot = diff_data(P_tot,tP_tot)
+    A_tot = diff_data(V_tot,tP_tot)
+
     # Plot measurements over time
-    fig1, axs1 = plt.subplots(3, 1, constrained_layout=True)
+    fig1, axs1 = plt.subplots(5, 1, constrained_layout=True)
 
     ax = axs1[0]
-    ax.plot(tR_tot, R_tot,'ro')#,tR, R,'x')
+    ax.plot(tR_tot, R_tot,'ro')
     ax.set_title('')
     ax.set_ylabel('Resistance [Ohm]')
     ax.grid(True)
 
     ax = axs1[1]
-    ax.plot(tP_tot, Strain_tot,'ro')#, tP, Strain, 'x')
+    ax.plot(tP_tot, Strain_tot,'ro')
     ax.set_title('')
     ax.set_ylabel('Strain')
     ax.grid(True)
 
     ax = axs1[2]
-    ax.plot(tF_tot, Stress_tot,'ro')#, tF, Stress, 'x')
+    ax.plot(tF_tot, Stress_tot,'ro')
     ax.set_title('F')
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
     ax.grid(True)
 
-    # Plot Res vs XX measurements
-    fig2, axs2 = plt.subplots(2, 1, constrained_layout=True)
+    ax = axs1[3]
+    ax.plot(tP_tot, V_tot,'ro')
+    ax.set_title('F')
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('Velocity [mm/s]')
+    ax.grid(True)
 
-    ax = axs2[0]
-    ax.plot(Strain_tot, R_tot,'ro')
+    ax = axs1[4]
+    ax.plot(tP_tot, A_tot,'ro')
+    ax.set_title('F')
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('Velocity [mm/s]')
+    ax.grid(True)
+
+    # Overlap Res and strain plots in time
+    fig2, axs2 = plt.subplots()
+
+    axs2.plot(tR_tot, R_tot,'r-')
+    axs2.set_ylabel('Resistance [Ohm]')
+    axs2.grid(True)
+
+    axs2a = axs2.twinx()
+    axs2a.set_navigate(False)
+    axs2a.plot(tP_tot, Strain_tot,'b-')
+    axs2a.set_ylabel('Strain')
+    axs2a.grid(True)
+
+    # Plot Res vs XX measurements
+    fig3, axs3 = plt.subplots(2, 1, constrained_layout=True)
+
+    ax = axs3[0]
+    ax.plot(Strain_tot, R_tot,'r-')
     ax.set_title('')
     ax.set_xlabel('Strain')
     ax.set_ylabel('Resistance [Ohm]')
     ax.grid(True)
 
-    ax = axs2[1]
+    ax = axs3[1]
     ax.plot(Stress_tot, R_tot,'ro')
     ax.set_title('')
     ax.set_xlabel('Stress[Pa]')
     ax.set_ylabel('Resistance [Ohm]')
     ax.grid(True)
+
+    # 3D surface plot
+    # fig3d = plt.figure()
+    # ax3d = fig3d.add_subplot(111, projection='3d')
+    # ax3d.plot_trisurf(V_tot, Strain_tot, R_tot)
+    #
+    # fig3da = plt.figure()
+    # ax3da = fig3da.add_subplot(111, projection='3d')
+    # ax3da.scatter(V_tot, Strain_tot, R_tot)
 
     # print(Stress)
     # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
