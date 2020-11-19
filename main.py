@@ -141,7 +141,7 @@ def read_pos(serial_handle):
     if re.search('[a-zA-Z]', current_position):
         current_position = 0
     else:
-        print("Position data handler:",current_position)
+        # print("Position data handler:",current_position)
         current_position = float(current_position)
     serial_handle.flushInput()
     return current_position
@@ -286,7 +286,7 @@ def main():
     # print(avail_devs)
     # device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
     # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
-    s = serial.Serial("COM8",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 
@@ -395,10 +395,11 @@ def main():
     # set_speed_input = input("How zoomy shall we do the stretchy? [mm/min]: ")
     # linear_travel(s, set_speed_input, set_travel_input) # (s, "speed" , "dist")
 
-    step_profile = [-3,-6,-9,-12,-9,-6,-3,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
-    velocity_profile = [60,120,180,240] # set travel speeds in mm/s
-
+    step_profile = [-3,-6,-9,-12,-9,-6,-3,0,-12,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
+    velocity_profile = [30,60,120,180,240] # set travel speeds in mm/s
+    ###
     # Begin measurement loop
+    ###
     print("Reading data...")
     step_counter = 0
     start_time = time.time() # ref time reset for automated test procedure
@@ -406,9 +407,10 @@ def main():
         for step in step_profile:
             linear_travel(s, velocity, step)
             print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
+            # print("%s" % readbuf_g(s))
             current_pos = 0 # init for while loop condition
             lag = 0 # to capture data from just after the strain has stopped
-            lag_delay = 5
+            lag_delay = 10
             while ((float(current_pos) != float(step)) or (lag < lag_delay)):
                 if float(current_pos) == float(step):
                     lag = lag + 1
@@ -475,4 +477,13 @@ def main():
 
     return 0
 
-main()
+# The real main driver
+if __name__ == "__main__":
+	# Default input parameters
+	# input_filename = "1st_test_num10" main(input_filename, input2)
+    # input2 = ??
+	# import sys
+	# if len(sys.argv)>1: input_filename   = (sys.argv[1])
+	# if len(sys.argv)>2: input2   =int(sys.argv[2])
+
+	main()

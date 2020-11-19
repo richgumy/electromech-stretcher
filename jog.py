@@ -124,16 +124,18 @@ def linear_travel(serial_handle, lin_speed="60", displacement="1"):
 def main():
     ## Setup grbl serial coms:
     avail_devs = list_serial_devices()
-    # print(avail_devs)
-    # device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
-    # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
-    s = serial.Serial("COM8",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    print(avail_devs)
+    device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
+    s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
+    # s = serial.Serial("COM8",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
-    jog_input = input("Enter jog input in mm. Enter 'q' to quit:")
-    while(jog_input != 'q'):
-        linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
-        jog_input = input(">>")
+    jog_x = input("Enter jog displacement in mm, x:")
+    jog_v = input("Enter jog speed in mm/s, v:")
+    while(jog_x != 'q'):
+        linear_travel(s, str(jog_v), str(jog_x)) # (s, "speed" , "dist")
+        jog_x = input("x:")
+        jog_v = input("v:")
     s.close()
 
     return 0
