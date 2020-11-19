@@ -15,6 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MaxNLocator
 from matplotlib import cm # colour map
 import numpy as np
+from scipy import optimize
 
 def diff_data(x,t):
     dx_dt = []
@@ -147,24 +148,33 @@ def main(input_filename):
     # ax.grid(True)
 
     # Plot Res vs strain (loading and unloading) measurements (specific for first_test_num12.csv)
-    R_load = np.concatenate((R_tot[0:111],R_tot[221:288],R_tot[355:408]))
-    R_load = np.concatenate((R_load,R_tot[461:508]))
-    Strain_load = np.concatenate((Strain[0:111],Strain[221:288],Strain[355:408]))
-    Strain_load = np.concatenate((Strain_load,Strain[461:508]))
+    R_load = R_tot[0:101]
+    # R_load = np.concatenate((R_tot[0:111],R_tot[221:288],R_tot[355:408]))
+    # R_load = np.concatenate((R_load,R_tot[461:508]))
+    Strain_load = Strain[0:101]
+    # Strain_load = np.concatenate((Strain[0:111],Strain[221:288],Strain[355:408]))
+    # Strain_load = np.concatenate((Strain_load,Strain[461:508]))
 
     # R_unload = np.concatenate(R_tot[111:221],R_tot[288:355],R_tot[408:461],R_tot[508:555])
     # Strain_unload = np.concatenate(Strain[111:221],Strain[288:355],Strain[408:461],Strain[508:555])
 
-    A_load = np.vstack([Strain_load,np.ones(len(Strain_load))]).T
-    model = np.linalg.lstsq(A_load, R_load, rcond=None)
-    Grad, offset_load_error= model[0]
-    resid = model[1]
+    def f(x, b, c, t):
+        return b**(x-t)+c
+
+    def residual(p, x, y):
+        return y - f(x, *p)
+
+    p0 = [1.0,4.0,1.0]
+
+    popt, pcov = optimize.leastsq(residual, p0, args=(Strain_load, R_load))
+
     # Determine the R_square value between 0 and 1. 1 is a strong correlation
-    R_sqr_load = 1 - resid/(R_load.size*R_load.var())
-    print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Grad, offset_load_error, R_sqr_load))
+    R_sqr_load = 1 - pcov/(R_load.size*R_load.var())
+
+    print("R = %.4f^(Strain) + %.4f; R_sqr = %.4f" % (popt[0], popt[1], R_sqr_load))
 
     Strain_load_lin = np.linspace(min(Strain_load),max(Strain_load) , 20)
-    Res_lin = Grad * Strain_load_lin + offset_load_error
+    Res_lin = f(Strain_load_lin,*popt)
 
     plt.figure()
     ax3 = plt.plot(Strain_load,R_load,'x',Strain_load_lin,Res_lin,'-')
