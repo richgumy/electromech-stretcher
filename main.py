@@ -185,7 +185,7 @@ def init_ohmmeter_params(ohmmeter_handle):
 def read_ohmmeter(ohmmeter_handle,start_time, timeout=10000):
     """
     DESCR: Read ohmmeter resistance, will timeout if nothing recieved within timeout period (default 10s)
-    IN_PARAMS: Start time
+    IN_PARAMS: Start time, timeout
     OUTPUT: Current resistance reading, average time since start time, time taken for reading
     NOTES:  Requgires pyvisa library
     TODO: Add input params

@@ -25,6 +25,14 @@ def diff_data(x,t):
     dx_dt.append((x[len(x)-1]-x[len(x)-2])/(t[len(x)-1]-t[len(x)-2])) # Slightly erroneous final value to maintain len(x) == len(dx_dt)
     return dx_dt
 
+def split_ramp_data(data):
+    index_splits = []
+    flat_flag = 0
+    for i in (1,len(range(data))-1):
+        if val[i-1] == val[i] and val[i] != val[i+1]:
+            index_splits.append[i]
+    return index_splits
+
 
 def main(input_filename):
     R = np.array([])
@@ -35,8 +43,11 @@ def main(input_filename):
     tF = np.array([])
 
     # Write to csv
+<<<<<<< HEAD
     if (input_filename[-4:] != '.csv'):
         input_filename = input_filename + '.csv' # Assume file is .csv if not explicitly entered in main.
+=======
+>>>>>>> 8da0c757fc6bcb32630e5fbcfc9603ae28aefdaa
     with open(input_filename, 'r', newline='') as csvfile:
         data = csv.reader(csvfile, delimiter=',')
         line_count = 0
@@ -132,6 +143,7 @@ def main(input_filename):
     # axs2a.set_ylabel('Strain')
     # axs2a.grid(True)
 
+<<<<<<< HEAD
     ## Plot Res vs XX measurements
     fig3, axs3 = plt.subplots(2, 1, constrained_layout=True)
 
@@ -154,12 +166,21 @@ def main(input_filename):
     # R_load = np.concatenate((R_tot[0:111],R_tot[221:288],R_tot[355:408]))
     # R_load = np.concatenate((R_load,R_tot[461:508]))
     Strain_load = Strain[0:111]
+=======
+    # Plot Res vs strain (loading and unloading) measurements (specific for first_test_num12.csv)
+    R_load = R_tot[0:111]
+    # R_load = np.concatenate((R_tot[0:111],R_tot[221:288],R_tot[355:408]))
+    # R_load = np.concatenate((R_load,R_tot[461:508]))
+    Strain_load = Strain_tot[0:111]
+>>>>>>> 8da0c757fc6bcb32630e5fbcfc9603ae28aefdaa
     # Strain_load = np.concatenate((Strain[0:111],Strain[221:288],Strain[355:408]))
     # Strain_load = np.concatenate((Strain_load,Strain[461:508]))
+    Stress_load = Stress_tot[0:111]
 
     # R_unload = np.concatenate(R_tot[111:221],R_tot[288:355],R_tot[408:461],R_tot[508:555])
     # Strain_unload = np.concatenate(Strain[111:221],Strain[288:355],Strain[408:461],Strain[508:555])
 
+<<<<<<< HEAD
     # Curve fitting code (curve_fit func using non-lin lstsqr)
     def f(x, a, b, c):
         return a * np.exp(b * x) + c
@@ -173,14 +194,33 @@ def main(input_filename):
 
     print("Formula:%.2f * exp(%.2f*(Strain)) + %.2f" % (popt[0],popt[1],popt[2]))
     print("SS_res = %.2f" % (SS_res))
+=======
+    # def f(x, b, c, t):
+    #     return b**(t*x)+c
+>>>>>>> 8da0c757fc6bcb32630e5fbcfc9603ae28aefdaa
 
-    Strain_load_lin = np.linspace(min(Strain_load),max(Strain_load) , 20)
-    Res_lin = f(Strain_load_lin,*popt)
-
-    plt.figure()
-    ax3 = plt.plot(Strain_load,R_load,'x',Strain_load_lin,Res_lin,'-')
-    plt.xlabel('Strain')
-    plt.ylabel('Res [Ohm]')
+    # def f(x, a, b, c):
+    #     return a*np.exp(b*x)+c
+    #
+    # def residual(p, x, y):
+    #     return y - f(x, *p)
+    #
+    # p0 = [1.0,1.0]
+    #
+    # # popt, pcov = optimize.leastsq(residual, p0, args=(Strain_load, R_load))
+    # popt, pcov = optimize.curve_fit(f, Strain_load, R_load)
+    # # Determine the R_square value between 0 and 1. 1 is a strong correlation
+    # # R_sqr_load = 1 - pcov/(R_load.size*R_load.var())
+    #
+    # # print("R = %.4f*(Strain)^6 + %.4f; R_sqr = %.4f" % (popt[0], popt[1], R_sqr_load))
+    #
+    # Strain_load_lin = np.linspace(min(Strain_load),max(Strain_load) , 20)
+    # Res_lin = f(Strain_load_lin,*popt)
+    #
+    # plt.figure()
+    # ax3 = plt.plot(Strain_load,R_load,'x',Strain_load_lin,Res_lin,'-')
+    # plt.xlabel('Strain')
+    # plt.ylabel('Res [Ohm]')
 
 
 
@@ -194,6 +234,7 @@ def main(input_filename):
     # ax3da.scatter(V_tot, Strain_tot, R_tot)
 
     # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
+<<<<<<< HEAD
     A = np.vstack([Strain_tot,np.ones(len(Strain_tot))]).T
     model = np.linalg.lstsq(A, Stress_tot, rcond=None)
     Y, offset_error= model[0]
@@ -204,10 +245,27 @@ def main(input_filename):
 
     Strain_lin = np.linspace(min(Strain_tot),max(Strain_tot) , 5)
     Stress_lin = Y * Strain_lin + offset_error
+=======
+    A = np.vstack([Strain_load,np.ones(len(Strain_load))]).T
+    model = np.linalg.lstsq(A, Stress_load, rcond=None)
+    Y, offset_error= model[0]
+    resid = model[1]
+    # Determine the R_square value between 0 and 1. 1 is a strong correlation
+    R_sqr = 1 - resid/(Stress_load.size*Stress_load.var())
+    print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Y, offset_error, R_sqr))
+>>>>>>> 8da0c757fc6bcb32630e5fbcfc9603ae28aefdaa
 
+    Strain_lin = np.linspace(min(Strain_load),max(Strain_load) , 5)
+    Stress_lin = Y * Strain_lin + offset_error
 
+<<<<<<< HEAD
     plt.figure()
     ax3 = plt.plot(Strain_tot,Stress_tot,'x',Strain_lin,Stress_lin,'-')
+=======
+
+    plt.figure()
+    ax3 = plt.plot(Strain_load,Stress_load,'x',Strain_lin,Stress_lin,'-')
+>>>>>>> 8da0c757fc6bcb32630e5fbcfc9603ae28aefdaa
     plt.xlabel('Strain')
     plt.ylabel('Stress [Pa]')
 
@@ -222,4 +280,7 @@ if __name__ == "__main__":
 	if len(sys.argv)>1: input_filename   = (sys.argv[1])
 	# if len(sys.argv)>2: input2   =int(sys.argv[2])
 
+    if input_filename[:-4] != '.csv':
+        input_filename = input_filename + '.csv'
+    
 	main(input_filename)
