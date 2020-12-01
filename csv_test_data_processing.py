@@ -35,7 +35,9 @@ def main(input_filename):
     tF = np.array([])
 
     # Write to csv
-    with open(input_filename + '.csv', 'r', newline='') as csvfile:
+    if (input_filename[-4:] != '.csv'):
+        input_filename = input_filename + '.csv' # Assume file is .csv if not explicitly entered in main.
+    with open(input_filename, 'r', newline='') as csvfile:
         data = csv.reader(csvfile, delimiter=',')
         line_count = 0
         for row in data:
@@ -129,49 +131,48 @@ def main(input_filename):
     # axs2a.plot(tP_tot, Strain_tot,'b-')
     # axs2a.set_ylabel('Strain')
     # axs2a.grid(True)
-    #
-    # ## Plot Res vs XX measurements
-    # fig3, axs3 = plt.subplots(2, 1, constrained_layout=True)
-    #
-    # ax = axs3[0]
-    # ax.plot(Strain_tot, R_tot,'r-')
-    # ax.set_title('')
-    # ax.set_xlabel('Strain')
-    # ax.set_ylabel('Resistance [Ohm]')
-    # ax.grid(True)
-    #
-    # ax = axs3[1]
-    # ax.plot(Stress_tot, R_tot,'ro')
-    # ax.set_title('')
-    # ax.set_xlabel('Stress[Pa]')
-    # ax.set_ylabel('Resistance [Ohm]')
-    # ax.grid(True)
 
-    # Plot Res vs strain (loading and unloading) measurements (specific for first_test_num12.csv)
-    R_load = R_tot[0:101]
+    ## Plot Res vs XX measurements
+    fig3, axs3 = plt.subplots(2, 1, constrained_layout=True)
+
+    ax = axs3[0]
+    ax.plot(Strain_tot, R_tot,'r-')
+    ax.set_title('')
+    ax.set_xlabel('Strain')
+    ax.set_ylabel('Resistance [Ohm]')
+    ax.grid(True)
+
+    ax = axs3[1]
+    ax.plot(Stress_tot, R_tot,'ro')
+    ax.set_title('')
+    ax.set_xlabel('Stress[Pa]')
+    ax.set_ylabel('Resistance [Ohm]')
+    ax.grid(True)
+
+    ## Plot Res vs strain (loading and unloading) measurements (specific for first_test_num12.csv)
+    R_load = R_tot[0:111]
     # R_load = np.concatenate((R_tot[0:111],R_tot[221:288],R_tot[355:408]))
     # R_load = np.concatenate((R_load,R_tot[461:508]))
-    Strain_load = Strain[0:101]
+    Strain_load = Strain[0:111]
     # Strain_load = np.concatenate((Strain[0:111],Strain[221:288],Strain[355:408]))
     # Strain_load = np.concatenate((Strain_load,Strain[461:508]))
 
     # R_unload = np.concatenate(R_tot[111:221],R_tot[288:355],R_tot[408:461],R_tot[508:555])
     # Strain_unload = np.concatenate(Strain[111:221],Strain[288:355],Strain[408:461],Strain[508:555])
 
-    def f(x, b, c, t):
-        return b**(x-t)+c
+    # Curve fitting code (curve_fit func using non-lin lstsqr)
+    def f(x, a, b, c):
+        return a * np.exp(b * x) + c
+    popt, pcov = optimize.curve_fit(f, Strain_load, R_load)
 
-    def residual(p, x, y):
-        return y - f(x, *p)
+    # Calc R squared value here...
+    SS_res = 0
+    # SS_tot = 0
+    for i in range(len(R_load)):
+        SS_res = SS_res + (R_load[i]-f(Strain_load[i], *popt))**2
 
-    p0 = [1.0,4.0,1.0]
-
-    popt, pcov = optimize.leastsq(residual, p0, args=(Strain_load, R_load))
-
-    # Determine the R_square value between 0 and 1. 1 is a strong correlation
-    R_sqr_load = 1 - pcov/(R_load.size*R_load.var())
-
-    print("R = %.4f^(Strain) + %.4f; R_sqr = %.4f" % (popt[0], popt[1], R_sqr_load))
+    print("Formula:%.2f * exp(%.2f*(Strain)) + %.2f" % (popt[0],popt[1],popt[2]))
+    print("SS_res = %.2f" % (SS_res))
 
     Strain_load_lin = np.linspace(min(Strain_load),max(Strain_load) , 20)
     Res_lin = f(Strain_load_lin,*popt)
@@ -181,39 +182,41 @@ def main(input_filename):
     plt.xlabel('Strain')
     plt.ylabel('Res [Ohm]')
 
+
+
     # 3D surface plot
-    # fig3d = plt.figure()
-    # ax3d = fig3d.add_subplot(111, projection='3d')
-    # ax3d.plot_trisurf(V_tot, Strain_tot, R_tot)
+    fig3d = plt.figure()
+    ax3d = fig3d.add_subplot(111, projection='3d')
+    ax3d.plot_trisurf(np.log(tP_tot), Stress_tot, Strain_tot)
     #
     # fig3da = plt.figure()
     # ax3da = fig3da.add_subplot(111, projection='3d')
     # ax3da.scatter(V_tot, Strain_tot, R_tot)
 
-    # # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
-    # A = np.vstack([Strain_tot,np.ones(len(Strain_tot))]).T
-    # model = np.linalg.lstsq(A, Stress_tot, rcond=None)
-    # Y, offset_error= model[0]
-    # resid = model[1]
-    # # Determine the R_square value between 0 and 1. 1 is a strong correlation
-    # R_sqr = 1 - resid/(Stress_tot.size*Stress_tot.var())
-    # print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Y, offset_error, R_sqr))
-    #
-    # Strain_lin = np.linspace(min(Strain_tot),max(Strain_tot) , 5)
-    # Stress_lin = Y * Strain_lin + offset_error
+    # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
+    A = np.vstack([Strain_tot,np.ones(len(Strain_tot))]).T
+    model = np.linalg.lstsq(A, Stress_tot, rcond=None)
+    Y, offset_error= model[0]
+    resid = model[1]
+    # Determine the R_square value between 0 and 1. 1 is a strong correlation
+    R_sqr = 1 - resid/(Stress_tot.size*Stress_tot.var())
+    print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Y, offset_error, R_sqr))
+
+    Strain_lin = np.linspace(min(Strain_tot),max(Strain_tot) , 5)
+    Stress_lin = Y * Strain_lin + offset_error
 
 
-    # plt.figure()
-    # ax3 = plt.plot(Strain_tot,Stress_tot,'x',Strain_lin,Stress_lin,'-')
-    # plt.xlabel('Strain')
-    # plt.ylabel('Stress [Pa]')
+    plt.figure()
+    ax3 = plt.plot(Strain_tot,Stress_tot,'x',Strain_lin,Stress_lin,'-')
+    plt.xlabel('Strain')
+    plt.ylabel('Stress [Pa]')
 
     plt.show()
 
 # The real main driver
 if __name__ == "__main__":
 	# Default input parameters
-	input_filename = "1st_test_num10"
+	input_filename = "Preliminary tests (semi-valid)/first_test_num12.csv"
     # input2
 	import sys
 	if len(sys.argv)>1: input_filename   = (sys.argv[1])
