@@ -90,41 +90,41 @@ def main(input_filename):
     V_tot = diff_data(P_tot,tP_tot)
     A_tot = diff_data(V_tot,tP_tot)
 
-    # # Plot measurements over time
-    # fig1, axs1 = plt.subplots(5, 1, constrained_layout=True)
-    #
-    # ax = axs1[0]
-    # ax.plot(tR_tot, R_tot,'ro')
-    # ax.set_title('')
-    # ax.set_ylabel('Resistance [Ohm]')
-    # ax.grid(True)
-    #
-    # ax = axs1[1]
-    # ax.plot(tP_tot, Strain_tot,'ro')
-    # ax.set_title('')
-    # ax.set_ylabel('Strain')
-    # ax.grid(True)
-    #
-    # ax = axs1[2]
-    # ax.plot(tF_tot, Stress_tot,'ro')
-    # ax.set_title('F')
-    # ax.set_xlabel('Time [s]')
-    # ax.set_ylabel('Stress [Pa]')
-    # ax.grid(True)
-    #
-    # ax = axs1[3]
-    # ax.plot(tP_tot, V_tot,'ro')
-    # ax.set_title('F')
-    # ax.set_xlabel('Time [s]')
-    # ax.set_ylabel('Velocity [mm/s]')
-    # ax.grid(True)
-    #
-    # ax = axs1[4]
-    # ax.plot(tP_tot, A_tot,'ro')
-    # ax.set_title('F')
-    # ax.set_xlabel('Time [s]')
-    # ax.set_ylabel('Velocity [mm/s]')
-    # ax.grid(True)
+    # Plot measurements over time
+    fig1, axs1 = plt.subplots(5, 1, constrained_layout=True)
+
+    ax = axs1[0]
+    ax.plot(tR_tot, R_tot,'ro')
+    ax.set_title('')
+    ax.set_ylabel('Resistance [Ohm]')
+    ax.grid(True)
+
+    ax = axs1[1]
+    ax.plot(tP_tot, Strain_tot,'ro')
+    ax.set_title('')
+    ax.set_ylabel('Strain')
+    ax.grid(True)
+
+    ax = axs1[2]
+    ax.plot(tF_tot, Stress_tot,'ro')
+    ax.set_title('F')
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('Stress [Pa]')
+    ax.grid(True)
+
+    ax = axs1[3]
+    ax.plot(tP_tot, V_tot,'ro')
+    ax.set_title('F')
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('Velocity [mm/s]')
+    ax.grid(True)
+
+    ax = axs1[4]
+    ax.plot(tP_tot, A_tot,'ro')
+    ax.set_title('F')
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('Acceleration [mm/s]')
+    ax.grid(True)
     #
     # # Overlap Res and strain plots in time
     # fig2, axs2 = plt.subplots()
