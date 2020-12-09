@@ -276,9 +276,36 @@ def stringify_list(in_list, dimension=1):
             new_list1.append(str(in_list[i1]))
     return new_list1
 
-
-
-
+def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
+    """
+    DESCR: Basic proportional controller to calibrate zero force position for
+    stretching device.
+    IN_PARAMS: loadcell_handle, serial_handle, zero tolerance [N]
+    NOTES: Not well tested.
+    TODO:
+    """
+    error = tolerance*2 # start error bigger than tolerance
+    buf_size = 100
+    f_buf = [0]*buf_size
+    speed = 100
+    Kp = 1 # control gain constant
+    while abs(error) > tolerance:
+        for i in range(buf_size):
+            raw_data = loadcell_handle.read(1) # read 1 data point
+            f_buf[i] = 452.29*float(raw_data[0]) + 98.155 # magic nums to get force into newtons
+        force_av = sum(f_buf)/len(f_buf)
+        print(force_av)
+        error = Kp*force_av
+        if error > 2 : error = 2
+        if error < -2 : error = -2
+        linear_travel(serial_handle, str(speed), str(error)) # (s, "speed" , "dist")
+        print(abs(error)/speed)
+        time.sleep((abs(error)/speed)*1.05 # add a bit of settling time for stress relaxation
+    time.sleep(2)
+    raw_data = loadcell_handle.read(1) # read 1 data point
+    force = 452.29*float(raw_data[0]) + 98.155 # magic nums to get force into newtons
+    print("Final force ="+str(force))
+    time.sleep(2)
 
 def main():
     ## Setup grbl serial coms:
@@ -381,10 +408,17 @@ def main():
                 data.writerow(stringify_list(compression_data[i],1))
 
     # TODO: make a parsing error handler for manual jog mode
-    jog_input = input("Enter jog input in mm. Enter 'q' to set zero(start) position:")
-    while (jog_input != "q"):
-        linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
-        jog_input = input(">>")
+    jog_input = input("Enter jog input in mm. Enter 'a' for auto zero cal OR 'q' to manually set zero(start) position:")
+    if jog_input == 'a':
+        auto_zero_cal(loadcell,s,0.1) # moves stretcher until measured force is zero'd or close enough (f < tol)
+    else:
+        while (jog_input != "q"):
+            linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
+            if jog_input == 'f':
+                raw_data = loadcell.read(1) # read 1 data point
+                force = 452.29*float(raw_data[0]) + 98.155
+                print(force)
+            jog_input = input("Enter jog dist OR 'f' for force measurement >>")
 
     # set new zero
     write_g(s,"G90")
