@@ -2,16 +2,18 @@
 FILE: main.py
 AUTHOR: R Ellingham
 DATE: Oct 2020
-PROGRAM DESC: Gather data from a stretched conductive elastomer in real time using
-serial communication. Writing the data to a CSV file ready for analysis
+PROGRAM DESC: Gather data from a stretched conductive elastomer in real time
+using serial communication. Writing the data to a CSV file ready for analysis
 
 Parameters measured:
 -> Resistance, Strain, Force, and Time (for each individual measurement)
 
 TODO:
 1) Complete data processing functions
-2) Minimise all instructions while data being recorded (post-process as muhc as possible)
-3) Make object oriented GUI
+2) Minimise all instructions while data being recorded (use post-processing as
+much as possible)
+3) Make object oriented GUI so other people can use it?
+4) rename prog
 """
 
 import csv
@@ -253,7 +255,7 @@ def write_PosResForce_to_CSV(filename,resistance, time_R, displacement, time_d, 
 
 def stringify_list(in_list, dimension=1):
     """
-    DESCR: Turn all elements from a 1,2,or 3 dimension list into a string
+    DESCR: Turn all elements from a 1,2,or 3 dimension list into a list of strings
     IN_PARAMS: list, dimension of list
     OUTPUT: new list of strings
     NOTES:  Requires all evenly dimensioned list (e.g. couldn't have >>stringify_list([[1,2],1], 2))
@@ -293,6 +295,7 @@ def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
         for i in range(buf_size):
             raw_data = loadcell_handle.read(1) # read 1 data point
             f_buf[i] = 452.29*float(raw_data[0]) + 98.155 # magic nums to get force into newtons
+            sleep(0.001) # Allow material to 'settle' and gain a better average
         force_av = sum(f_buf)/len(f_buf)
         print(force_av)
         error = Kp*force_av
@@ -300,7 +303,7 @@ def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
         if error < -2 : error = -2
         linear_travel(serial_handle, str(speed), str(error)) # (s, "speed" , "dist")
         print(abs(error)/speed)
-        time.sleep((abs(error)/speed)*1.05) # add a bit of settling time for stress relaxation
+        time.sleep((abs(error)/speed)) # add a bit of settling time for stress relaxation
     time.sleep(2)
     raw_data = loadcell_handle.read(1) # read 1 data point
     force = 452.29*float(raw_data[0]) + 98.155 # magic nums to get force into newtons
@@ -342,95 +345,99 @@ def main():
     force_data = []
     time_data_force = []
 
-    compression_data = [["current_resistance", "measure_time", "time_taken", "thickness"]]
-    single_sided_electrode_data = [["current_resistance(single electrode)", "measure_time(single electrode)", "time_taken(single electrode"]]
+    # compression_data = [["current_resistance", "measure_time", "time_taken", "thickness"]]
+    # single_sided_electrode_data = [["current_resistance(single electrode)", "measure_time(single electrode)", "time_taken(single electrode"]]
+    #
+    # # Begin manual testing
+    # start_time = time.time() # ref time for manual testing
+    # test_specimen_num = input("Input test specimen num:")
+    #
+    # specimen_thickness = float(input("What is the approx. specimen thickness(in mm)?"))
+    # compressed_thickness = input("Enter the compressed test thickness of the test specimen(mm):")
+    #
+    # compress_test_ans = input("Compression resistivity test?(y or n):")
+    # if compress_test_ans == 'y':
+    #     # Read compression data
+    #     print("Electrode compression test")
+    #     print("==========================")
+    #     res_input = input("Press enter to read resistance for single-sided electrode test")
+    #     for i in range(5):
+    #         single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs [current_resistance, measure_time, time_taken]
+    #         print(" %.4f Ohms in %.4f s" % (single_sided_electrode_data[i+1][0], single_sided_electrode_data[i+1][2]))
+    #
+    #     num_compr_str = 4
+    #     num_compr_res_sample = 5
+    #     i_compr_ld = 0
+    #     i_compr_uld = 0
+    #     res_input = 0
+    #
+    #     # Loading clamps with compressive strain
+    #     while ((res_input != "q") and (i_compr_ld != num_compr_str)):
+    #         res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
+    #         for i in range(num_compr_res_sample):
+    #             compress_n_strain = read_ohmmeter(ohmmeter,0)
+    #             compress_n_strain.append(specimen_thickness)
+    #             compression_data.append(compress_n_strain)
+    #             print(compression_data[(i_compr_ld*num_compr_res_sample)+1+i])
+    #         specimen_thickness = specimen_thickness - 0.5 # 0.5mm pitch for M3 bolt
+    #         i_compr_ld = i_compr_ld + 1
+    #         print(i_compr_ld)
+    #         print("Turn each clamp bolt 1 CW revolution")
+    #
+    #     # Unloading clamps of compressive strain
+    #     while ((res_input != "q") and (i_compr_uld != num_compr_str)):
+    #         print("Now turn each clamp bolt 1 CCW revolution")
+    #         res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
+    #         for i in range(num_compr_res_sample):
+    #             compress_n_strain = read_ohmmeter(ohmmeter,0)
+    #             compress_n_strain.append(specimen_thickness)
+    #             compression_data.append(compress_n_strain)
+    #             print(compression_data[(i_compr_ld*num_compr_res_sample+i_compr_uld*num_compr_res_sample)+1+i])
+    #         specimen_thickness = specimen_thickness + 0.5 # 0.5mm pitch for M3 bolt
+    #         i_compr_uld = i_compr_uld + 1
+    #         print(i_compr_uld)
+    #
+    #
+    #     format_compr_list = [["Specimen thickness:",specimen_thickness],["Test compressed thickness:",compressed_thickness]]
+    #
+    #     compression_filename = "compression_resistance_#%s" % (test_specimen_num)
+    #     with open(compression_filename+'.csv', 'w', newline='') as csvfile:
+    #         data = csv.writer(csvfile, delimiter=',')
+    #         print(compression_data)
+    #         for i in range(len(compression_data)):
+    #             if i <= 1:
+    #                 data.writerow(stringify_list(compression_data[i],1)+stringify_list(single_sided_electrode_data[i],1)+stringify_list(format_compr_list[0][i],1)+stringify_list(format_compr_list[1][i],1))
+    #             else:
+    #                 data.writerow(stringify_list(compression_data[i],1))
 
-    # Begin manual testing
-    start_time = time.time() # ref time for manual testing
-    test_specimen_num = input("Input test specimen num:")
-
-    specimen_thickness = float(input("What is the approx. specimen thickness(in mm)?"))
-    compressed_thickness = input("Enter the compressed test thickness of the test specimen(mm):")
-
-    compress_test_ans = input("Compression resistivity test?(y or n):")
-    if compress_test_ans == 'y':
-        # Read compression data
-        print("Electrode compression test")
-        print("==========================")
-        res_input = input("Press enter to read resistance for single-sided electrode test")
-        for i in range(5):
-            single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs [current_resistance, measure_time, time_taken]
-            print(" %.4f Ohms in %.4f s" % (single_sided_electrode_data[i+1][0], single_sided_electrode_data[i+1][2]))
-
-        num_compr_str = 4
-        num_compr_res_sample = 5
-        i_compr_ld = 0
-        i_compr_uld = 0
-        res_input = 0
-
-        # Loading clamps with compressive strain
-        while ((res_input != "q") and (i_compr_ld != num_compr_str)):
-            res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
-            for i in range(num_compr_res_sample):
-                compress_n_strain = read_ohmmeter(ohmmeter,0)
-                compress_n_strain.append(specimen_thickness)
-                compression_data.append(compress_n_strain)
-                print(compression_data[(i_compr_ld*num_compr_res_sample)+1+i])
-            specimen_thickness = specimen_thickness - 0.5 # 0.5mm pitch for M3 bolt
-            i_compr_ld = i_compr_ld + 1
-            print(i_compr_ld)
-            print("Turn each clamp bolt 1 CW revolution")
-
-        # Unloading clamps of compressive strain
-        while ((res_input != "q") and (i_compr_uld != num_compr_str)):
-            print("Now turn each clamp bolt 1 CCW revolution")
-            res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
-            for i in range(num_compr_res_sample):
-                compress_n_strain = read_ohmmeter(ohmmeter,0)
-                compress_n_strain.append(specimen_thickness)
-                compression_data.append(compress_n_strain)
-                print(compression_data[(i_compr_ld*num_compr_res_sample+i_compr_uld*num_compr_res_sample)+1+i])
-            specimen_thickness = specimen_thickness + 0.5 # 0.5mm pitch for M3 bolt
-            i_compr_uld = i_compr_uld + 1
-            print(i_compr_uld)
-
-
-    format_compr_list = [["Specimen thickness:",specimen_thickness],["Test compressed thickness:",compressed_thickness]]
-
-    compression_filename = "compression_resistance_#%s" % (test_specimen_num)
-    with open(compression_filename+'.csv', 'w', newline='') as csvfile:
-        data = csv.writer(csvfile, delimiter=',')
-        print(compression_data)
-        for i in range(len(compression_data)):
-            if i <= 1:
-                data.writerow(stringify_list(compression_data[i],1)+stringify_list(single_sided_electrode_data[i],1)+stringify_list(format_compr_list[i],1))
-            else:
-                data.writerow(stringify_list(compression_data[i],1))
-
-    # TODO: make a parsing error handler for manual jog mode
-    jog_input = input("Enter jog input in mm. Enter 'a' for auto zero cal OR 'q' to manually set zero(start) position:")
-    if jog_input == 'a':
-        auto_zero_cal(loadcell,s,0.1) # moves stretcher until measured force is zero'd or close enough (f < tol)
-    else:
-        while (jog_input != "q"):
-            linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
-            if jog_input == 'f':
-                raw_data = loadcell.read(1) # read 1 data point
-                force = 452.29*float(raw_data[0]) + 98.155
-                print(force)
-            jog_input = input("Enter jog dist OR 'f' for force measurement >>")
+    # # TODO: make a parsing error handler for manual jog mode
+    # jog_input = input("Enter jog input in mm. Enter 'a' for auto zero cal OR 'q' to manually set zero(start) position:")
+    # if jog_input == 'a':
+    #     auto_zero_cal(loadcell,s,0.1) # moves stretcher until measured force is zero'd or close enough (f < tol)
+    # else:
+    #     while (jog_input != "q"):
+    #         linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
+    #         if jog_input == 'f':
+    #             raw_data = loadcell.read(1) # read 1 data point
+    #             force = 452.29*float(raw_data[0]) + 98.155
+    #             print(force)
+    #         jog_input = input("Enter jog dist OR 'f' for force measurement >>")
 
     # set new zero
     write_g(s,"G90")
     write_g(s,"G10 P0 L20 X0 Y0 Z0")
 
     # Send desired motion g-code to grbl
-    # set_travel_input = input("How far shall we go?[mm] (negative for stretch): ")
+    # set_travel_input = input("Set step profile (i.e.[-3,-6,-3,0] stretch material 3mm, 6mm, 3mm ... for strains of 10%, 20%, 10% ...\n>>")
     # set_speed_input = input("How zoomy shall we do the stretchy? [mm/min]: ")
     # linear_travel(s, set_speed_input, set_travel_input) # (s, "speed" , "dist")
 
-    step_profile = [-3,-6,-9,-12,-9,-6,-3,0,-12,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
-    velocity_profile = [30,60,120,180,240] # set travel speeds in mm/s
+    ####################################
+    ### Set velocity profile params: ###
+    ####################################
+    step_profile = [-12,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
+    velocity_profile = [140] # set travel speeds in mm/s
+    lag_delay = 40
     ###
     # Begin measurement loop
     ###
@@ -443,11 +450,14 @@ def main():
             print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
             # print("%s" % readbuf_g(s))
             current_pos = 0 # init for while loop condition
-            lag = 0 # to capture data from just after the strain has stopped
-            lag_delay = 10
+            lag_start = 0 # to capture data from just after the strain has stopped
+            lag = 0
             while ((float(current_pos) != float(step)) or (lag < lag_delay)):
-                if float(current_pos) == float(step):
-                    lag = lag + 1
+                if (lag_start == 0) and (float(current_pos) >= float(step)):
+                    lag_start = time.time()
+                if float(current_pos) >= float(step):
+                    lag = time.time() - lag_start
+
                 # Read position
                 current_pos = read_pos(s)
                 current_time = time.time() - start_time
