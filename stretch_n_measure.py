@@ -436,8 +436,8 @@ def main():
     ### Set velocity profile params: ###
     ####################################
     step_profile = [-12,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
-    velocity_profile = [140] # set travel speeds in mm/s
-    lag_delay = 40
+    velocity_profile = [60,120,180,240] # set travel speeds in mm/s
+    lag_delay = 60
     ###
     # Begin measurement loop
     ###
@@ -510,7 +510,7 @@ def main():
         ax3.set(xlabel='Time[s]', ylabel='Force[N]')
 
         plt.show()
-        plt.savefig(filename)
+        fig.savefig(filename)
 
 
     # Wait here until grbl is finished to close serial port and file.
