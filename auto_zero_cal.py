@@ -19,10 +19,10 @@ print("Thicc libraries loaded.")
 
 def auto_zero_crtl(loadcell_handle, serial_handle, tolerance):
     """
-    DESCR:
+    DESCR: Rough PI controller to get stress in test rig to zero
     IN_PARAMS: loadcell_handle, serial_handle, zero tolerance [N]
     NOTES: Not well tested.
-    TODO: Fin
+    TODO:
     """
     error = tolerance*2 # start error bigger than tolerance
     error_prev = 0

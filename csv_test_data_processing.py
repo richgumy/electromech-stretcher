@@ -18,6 +18,12 @@ import numpy as np
 from scipy import optimize
 
 def diff_data(x,t):
+    """
+    DESCR: Differentiate 'x' w.r.t. 't' to get output list 'dx/dt'
+    IN_PARAMS: x data, t data
+    NOTES:
+    TODO:
+    """
     dx_dt = []
     dx_dt.append((x[1]-x[0])/(t[1]-t[0])) # Slightly erroneous first value to maintain len(x) == len(dx_dt)
     for i in range(1,len(x)-1):
@@ -26,11 +32,28 @@ def diff_data(x,t):
     return dx_dt
 
 def split_ramp_data(data):
-    index_splits = []
+    """
+    DESCR: Returns an array of indices showing where all of strain rates reach zero
+    EG for below ramp returns [3,5,9,11]
+                      ...
+                    /|
+                ...  |
+              /|   | |
+    data->...  |   | |
+             | |   | |
+    indx->---3-5---9-11--
+    IN_PARAMS: Ramp profile data
+    NOTES:
+    TODO:
+    """
+    index_splits = [0]
     flat_flag = 0
-    for i in (1,len(range(data))-1):
-        if val[i-1] == val[i] and val[i] != val[i+1]:
-            index_splits.append[i]
+    n = len(data)
+    for i in range(1,n-1):
+        if flat_flag == 0 and (data[i-1] != data[i] and data[i] == data[i+1]) or (data[i-1] == data[i] and data[i] != data[i+1]):
+            index_splits.append(i)
+        print(i)
+    index_splits.append(n-1)
     return index_splits
 
 
@@ -91,40 +114,40 @@ def main(input_filename):
     A_tot = diff_data(V_tot,tP_tot)
 
     # Plot measurements over time
-    fig1, axs1 = plt.subplots(5, 1, constrained_layout=True)
+    fig1, axs1 = plt.subplots(3, 1, constrained_layout=True)
 
     ax = axs1[0]
-    ax.plot(tR_tot, R_tot,'ro')
+    ax.plot(tR_tot, R_tot,'r-')
     ax.set_title('')
     ax.set_ylabel('Resistance [Ohm]')
     ax.grid(True)
 
     ax = axs1[1]
-    ax.plot(tP_tot, Strain_tot,'ro')
+    ax.plot(tP_tot, Strain_tot,'r-')
     ax.set_title('')
     ax.set_ylabel('Strain')
     ax.grid(True)
 
     ax = axs1[2]
-    ax.plot(tF_tot, Stress_tot,'ro')
+    ax.plot(tF_tot, Stress_tot,'r-')
     ax.set_title('F')
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
     ax.grid(True)
 
-    ax = axs1[3]
-    ax.plot(tP_tot, V_tot,'ro')
-    ax.set_title('F')
-    ax.set_xlabel('Time [s]')
-    ax.set_ylabel('Velocity [mm/s]')
-    ax.grid(True)
-
-    ax = axs1[4]
-    ax.plot(tP_tot, A_tot,'ro')
-    ax.set_title('F')
-    ax.set_xlabel('Time [s]')
-    ax.set_ylabel('Acceleration [mm/s]')
-    ax.grid(True)
+    # ax = axs1[3]
+    # ax.plot(tP_tot, V_tot,'r-')
+    # ax.set_title('F')
+    # ax.set_xlabel('Time [s]')
+    # ax.set_ylabel('Velocity [mm/s]')
+    # ax.grid(True)
+    #
+    # ax = axs1[4]
+    # ax.plot(tP_tot, A_tot,'r-')
+    # ax.set_title('F')
+    # ax.set_xlabel('Time [s]')
+    # ax.set_ylabel('Acceleration [mm/s]')
+    # ax.grid(True)
     #
     # # Overlap Res and strain plots in time
     # fig2, axs2 = plt.subplots()
