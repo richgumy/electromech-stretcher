@@ -41,6 +41,7 @@ def split_ramp_data(data):
     index_splits.append(n-1)
     return index_splits
 
+
 def main(input_filename):
     R = np.array([])
     tR = np.array([])
@@ -136,30 +137,32 @@ def main(input_filename):
     strain_splits = split_ramp_data(Strain_tot)
     print(strain_splits)
     print(len(strain_splits))
-    i1 = 9
-    i2 = 10
-    R_load = R_tot[int(strain_splits[i1]):int(strain_splits[i2])]
+    # take a chunk of relaxing values from index i1 to i2
+    i1 = [1,5,9,13]
+    i2 = [2,6,10,14]
+    for i in range(len(i1)):
+        R_load = R_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
 
-    Strain_load = Strain[int(strain_splits[i1]):int(strain_splits[i2])]
+        Strain_load = Strain[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
 
-    Stress_load = Stress_tot[int(strain_splits[i1]):int(strain_splits[i2])]
+        Stress_load = Stress_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
 
-    t_load = tR_tot[int(strain_splits[i1]):int(strain_splits[i2])]
-    t_load = t_load - t_load[0]
-    # Curve fitting code (curve_fit func using non-lin lstsqr)
-    def f(t, a, b, c, d):
-        return a * np.exp(-b * (t-c)) + d
-    popt, pcov = optimize.curve_fit(f, t_load, Stress_load)
+        t_load = tR_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
+        t_load = t_load - t_load[0]
+        # Curve fitting code (curve_fit func using non-lin lstsqr)
+        def f(t, a, b, c, d):
+            return a * np.exp(-b * (t-c)) + d
+        popt, pcov = optimize.curve_fit(f, t_load, Stress_load)
 
-    print("Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (popt[0],popt[1],popt[2],popt[3]))
+        print("Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (popt[0],popt[1],popt[2],popt[3]))
 
-    t_load_lin = np.linspace(min(t_load),max(t_load) , 20)
-    Stress_load_lin = f(t_load_lin,*popt)
+        t_load_lin = np.linspace(min(t_load),max(t_load) , 20)
+        Stress_load_lin = f(t_load_lin,*popt)
 
-    plt.figure()
-    ax3 = plt.plot(t_load,Stress_load,'x',t_load_lin,Stress_load_lin,'-')
-    plt.xlabel('t')
-    plt.ylabel('stress')
+        plt.figure()
+        ax3 = plt.plot(t_load,Stress_load,'x',t_load_lin,Stress_load_lin,'-')
+        plt.xlabel('t')
+        plt.ylabel('stress')
 
     plt.show()
 
