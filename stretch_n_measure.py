@@ -435,9 +435,10 @@ def main():
     ####################################
     ### Set velocity profile params: ###
     ####################################
-    step_profile = [-12,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
-    velocity_profile = [60,120,180,240] # set travel speeds in mm/s
-    lag_delay = 60
+    step_profile = [0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
+    velocity_profile = [0] # set travel speeds in mm/s
+    lag_delay = 40
+
     ###
     # Begin measurement loop
     ###
@@ -471,14 +472,15 @@ def main():
                 time_data_res.append(t_d)
 
                 # Read force
-                raw_data = loadcell.read(1) # read 1 data point
-                force = 452.29*float(raw_data[0]) + 98.155 # scale data to Newtons (waste of processing time)
+                raw_data = loadcell.read(1) # read 1 data
+                # below scale factors calibrated 14/12/2020
+                force = 460*float(raw_data[0]) + 100.02 # scale data to Newtons !waste of processing time!? meh
                 if (force > MAX_LOADCELL_FORCE):
                     raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
                 force_data.append(force)
                 current_time = time.time() - start_time
                 time_data_force.append(current_time)
-                print(current_pos)
+                print(force)
             step_counter = step_counter + 1
             print("Step complete", step_counter)
 
