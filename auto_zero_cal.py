@@ -13,7 +13,7 @@ TODO:
 """
 print("importing some thicc libraries...")
 
-from main import *
+from stretch_n_measure import *
 
 print("Thicc libraries loaded.")
 
