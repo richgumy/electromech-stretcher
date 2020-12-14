@@ -33,16 +33,21 @@ def split_ramp_data(data):
     TODO:
     """
     index_splits = [0]
-    flat_flag = 0
     n = len(data)
     for i in range(1,n-1):
-        if flat_flag == 0 and (data[i-1] != data[i] and data[i] == data[i+1]) or (data[i-1] == data[i] and data[i] != data[i+1]):
+        if (data[i-1] != data[i] and data[i] == data[i+1]) or (data[i-1] == data[i] and data[i] != data[i+1]):
             index_splits.append(i)
     index_splits.append(n-1)
     return index_splits
 
 
-def main(input_filename):
+def main(input_filename, spec_length=40e-3, spec_width=10e-3, spec_thickness=4e-3):
+    """
+    DESCR: Completes data manipulation
+    IN_PARAMS: filename for raw csv data, specimen dimensions in m
+    NOTES: Not well tested.
+    TODO:
+    """
     R = np.array([])
     tR = np.array([])
     P = np.array([])
@@ -88,11 +93,16 @@ def main(input_filename):
     R_tot = np.append(R,[Rintp_P,Rintp_F])
     tR_tot = np.append(tR,[tP,tF])
 
-    # Calc stress and strain from F_tot and P_tot
-    Stress = F/(10e-3*4e-3)
-    Stress_tot = F_tot/(10e-3*4e-3) # force/cross-sectional-area
-    Strain = -P/30
-    Strain_tot = -P_tot/30 # dx/x
+    # Calc strain from displacement
+    Strain = -P/(spec_length*1000)
+    Strain_tot = -P_tot/(spec_length*1000) # dx/x
+    # Calc stress from force and changing strain
+    possion_ratio = 0.25 # Poisson's ratio
+    Stress = F/((spec_width*spec_thickness)*(-Strain*possion_ratio+1)*(-Strain*possion_ratio+1))
+    Stress_tot = F_tot/((spec_width*spec_thickness)*(-Strain_tot*possion_ratio+1)*(-Strain_tot*possion_ratio+1)) # force/cross-sectional-area
+    # # Calc stress from force (neglecting the changing cross-sectional area)
+    # Stress = F/(spec_width*spec_thickness)
+    # Stress_tot = F_tot/(spec_width*spec_thickness) # force/cross-sectional-area
 
     # Plot measurements over time
     fig1, axs1 = plt.subplots(3, 1, constrained_layout=True)
@@ -120,7 +130,7 @@ def main(input_filename):
     fig3, axs3 = plt.subplots(2, 1, constrained_layout=True)
 
     ax = axs3[0]
-    ax.plot(Strain_tot, R_tot,'r-')
+    ax.plot(Strain_tot, R_tot,'rx')
     ax.set_title('')
     ax.set_xlabel('Strain')
     ax.set_ylabel('Resistance [Ohm]')
@@ -133,36 +143,77 @@ def main(input_filename):
     ax.set_ylabel('Resistance [Ohm]')
     ax.grid(True)
 
-    ## Plot Res vs strain (loading and unloading) measurements (specific for first_test_num12.csv)
+    # Use linear least squares to find Young's (elastic) modulus
+    # -> Stress = Y * Strain + offset_error
+    A = np.vstack([Strain_tot,np.ones(len(Strain_tot))]).T
+    model = np.linalg.lstsq(A, Stress_tot, rcond=None)
+    Y, offset_error= model[0]
+    resid = model[1]
+    # Determine the R_square value between 0 and 1. 1 is a strong correlation
+    R_sqr = 1 - resid/(Stress_tot.size*Stress_tot.var())
+    print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Y, offset_error, R_sqr))
+
+    Strain_lin = np.linspace(min(Strain_tot),max(Strain_tot) , 5)
+    Stress_lin = Y * Strain_lin + offset_error
+
+    plt.figure()
+    ax3 = plt.plot(Strain_tot,Stress_tot,'x',Strain_lin,Stress_lin,'-')
+    plt.xlabel('Strain')
+    plt.ylabel('Stress [Pa]')
+
+    # input("Push Enter to find relaxing parameters :)")
+    ## Plot relaxation and fit curve
+    # Split data into piece-wise data
     strain_splits = split_ramp_data(Strain_tot)
-    print(strain_splits)
-    print(len(strain_splits))
+
     # take a chunk of relaxing values from index i1 to i2
     i1 = [1,5,9,13]
     i2 = [2,6,10,14]
-    for i in range(len(i1)):
-        R_load = R_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
 
-        Strain_load = Strain[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
+    # Curve fitting code (curve_fit func using non-lin lstsqr)
+    # stress(t) = Y * strain * exp^(-(Y/mu)*t)
+    def f(t, a, b, c, d):
+        return a * np.exp(-b * (t-c)) + d
+
+    for i in range(len(i1)):
+        Res_load = R_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
+
+        Strain_load = Strain_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
 
         Stress_load = Stress_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
 
         t_load = tR_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
         t_load = t_load - t_load[0]
-        # Curve fitting code (curve_fit func using non-lin lstsqr)
-        def f(t, a, b, c, d):
-            return a * np.exp(-b * (t-c)) + d
-        popt, pcov = optimize.curve_fit(f, t_load, Stress_load)
 
-        print("Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (popt[0],popt[1],popt[2],popt[3]))
+        # Levenberg–Marquardt algorithm for non-linear leastsq
+        poptS, pcovS = optimize.curve_fit(f, t_load, Stress_load)
+        poptR, pcovR = optimize.curve_fit(f, t_load, Res_load)
+
+        print("Stress Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptS[0],poptS[1],poptS[2],poptS[3]))
+        print("Resistance Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptR[0],poptR[1],poptR[2],poptR[3]))
+        # print("Covar:")
+        # print(pcov)
 
         t_load_lin = np.linspace(min(t_load),max(t_load) , 20)
-        Stress_load_lin = f(t_load_lin,*popt)
+        Stress_load_lin = f(t_load_lin,*poptS)
+        Res_load_lin = f(t_load_lin,*poptR)
 
-        plt.figure()
-        ax3 = plt.plot(t_load,Stress_load,'x',t_load_lin,Stress_load_lin,'-')
-        plt.xlabel('t')
-        plt.ylabel('stress')
+        fig, axs3 = plt.subplots(2, 1, constrained_layout=True)
+
+        ax = axs3[0]
+        ax.plot(t_load,Stress_load,'bx',t_load_lin,Stress_load_lin,'y-')
+        ax.set_title('')
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('Stress [Pa]')
+        ax.grid(True)
+
+        ax = axs3[1]
+        ax.plot(t_load,Res_load,'rx',t_load_lin,Res_load_lin,'y-')
+        ax.set_title('')
+        ax.set_xlabel('Time[s]')
+        ax.set_ylabel('Resistance [Ohm]')
+        ax.grid(True)
+
 
     plt.show()
 
