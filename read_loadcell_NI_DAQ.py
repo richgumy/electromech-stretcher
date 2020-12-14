@@ -39,7 +39,8 @@ print("Loadcell configuration = successful!\n")
 start_time = time.time()
 while i<100:
     raw_data = task.read(1)
-    force = 452.29*float(raw_data[0]) + 98.155
+    force = 452.29*float(raw_data[0]) + 98.155 # cal 10/2020
+    # cal 14/12/2020 -> 460*float(raw_data[0]) + 100.02
     force_data.append(force)
     time_i = time.time() - start_time
     time_data.append(time_i)
@@ -47,6 +48,7 @@ while i<100:
     # plt.pause(0.01)
     i=i+1
     print(force)
+    time.delay(0.1)
 
 plt.scatter(time_data,force_data,c='r')
 plt.show()
