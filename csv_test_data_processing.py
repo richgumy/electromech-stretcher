@@ -56,6 +56,22 @@ def split_ramp_data(data):
     index_splits.append(n-1)
     return index_splits
 
+def MAF(x,dx):
+    """
+    DESCR: Moving average filter for a set of data
+    IN_PARAMS: x data, time data, time period to average over
+    NOTES: assumes x and t are the same length
+    TODO:
+    """
+    xn = []
+    x_sum = 0
+    for i in range(dx,len(x)-dx):
+        x_sum = x[i]
+        for j in range(1,dx+1):
+            x_sum = x_sum + x[i-j] + x[i+j]
+        xn.append(x_sum/(2*dx+1))
+    return xn
+
 
 def main(input_filename):
     R = np.array([])
@@ -113,6 +129,10 @@ def main(input_filename):
     V_tot = diff_data(P_tot,tP_tot)
     A_tot = diff_data(V_tot,tP_tot)
 
+    # Apply moving average filter to stress data
+    stress_fil = MAF(Stress_tot,5)
+    t_fil = MAF(tF_tot,5)
+
     # Plot measurements over time
     fig1, axs1 = plt.subplots(3, 1, constrained_layout=True)
 
@@ -129,7 +149,7 @@ def main(input_filename):
     ax.grid(True)
 
     ax = axs1[2]
-    ax.plot(tF_tot, Stress_tot,'r-')
+    ax.plot(tF_tot, Stress_tot,'r-',t_fil,stress_fil,'bx')
     ax.set_title('F')
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
@@ -261,6 +281,8 @@ def main(input_filename):
     plt.ylabel('Stress [Pa]')
 
     plt.show()
+
+
 
 # The real main driver
 if __name__ == "__main__":

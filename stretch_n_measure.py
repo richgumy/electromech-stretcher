@@ -449,7 +449,7 @@ def main():
         for step in step_profile:
             linear_travel(s, velocity, step)
             print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
-            # print("%s" % readbuf_g(s))
+            # print("%s" %                   readbuf_g(s))
             current_pos = 0 # init for while loop condition
             lag_start = 0 # to capture data from just after the strain has stopped
             lag = 0
