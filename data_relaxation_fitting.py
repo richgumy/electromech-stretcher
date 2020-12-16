@@ -111,7 +111,6 @@ def main(input_filename, spec_length=40e-3, spec_width=10e-3, spec_thickness=4e-
     R_tot = np.append(Rintp_F,[Rintp_P,R])
     tR_tot = np.append(tF,[tP,tR])
 
-    # TODO:
     ## Sort all _tot data into time order
     # Make new arrays for sorted data
     F_ = np.zeros(len(tF_tot))
@@ -126,51 +125,49 @@ def main(input_filename, spec_length=40e-3, spec_width=10e-3, spec_thickness=4e-
         R_[i] = R_tot[ind[i]]
         t_[i] = tF_tot[ind[i]]
 
-    # TODO:
-    # Interpolate again to get time in a linear periodic interval
+    # Interpolate again to get time in a linear form
+    t_lin = np.linspace(min(t_),max(t_),int(len(t_)/3)) # divide by 3 to get original size of data
+    F_t = np.interp(t_lin,t_,F_)
+    P_t = np.interp(t_lin,t_,P_)
+    R_t = np.interp(t_lin,t_,R_)
 
     # Calc strain from displacement
-    Strain = -P/(spec_length*1000)
     # Strain_tot = -P_tot/(spec_length*1000) # dx/x
-    Strain_tot = -P_/(spec_length*1000) # dx/x
+    Strain_tot = -P_t/(spec_length*1000) # dx/x
     # Calc stress from force and changing strain
     possion_ratio = 0.25 # Poisson's ratio
-    Stress = F/((spec_width*spec_thickness)*(-Strain*possion_ratio+1)*(-Strain*possion_ratio+1))
     # Stress_tot = F_tot/((spec_width*spec_thickness)*(-Strain_tot*possion_ratio+1)*(-Strain_tot*possion_ratio+1)) # force/cross-sectional-area
-    Stress_tot = F_/((spec_width*spec_thickness)*(-Strain_tot*possion_ratio+1)*(-Strain_tot*possion_ratio+1)) # force/cross-sectional-area
+    Stress_tot = F_t/((spec_width*spec_thickness)*(-Strain_tot*possion_ratio+1)*(-Strain_tot*possion_ratio+1)) # force/cross-sectional-area
     # # Calc stress from force (neglecting the changing cross-sectional area)
     # Stress = F/(spec_width*spec_thickness)
     # Stress_tot = F_tot/(spec_width*spec_thickness) # force/cross-sectional-area
 
-    R_tot = R_
-    tF_tot = t_
-    tP_tot = t_
-    tR_tot = t_
+    R_tot = R_t
 
     # Apply moving average filter to stress data
-    filter_num = 4
+    filter_num = 5
     stress_fil = MAF(Stress_tot,filter_num)
     res_fil = MAF(R_tot,filter_num)
     strain_fil = MAF(Strain_tot,filter_num)
-    t_fil = MAF(tF_tot,filter_num)
+    t_fil = t_lin[filter_num:-filter_num]
 
     # Plot measurements over time
     fig1, axs1 = plt.subplots(3, 1, constrained_layout=True)
 
     ax = axs1[0]
-    ax.plot(tR_tot, R_tot,'rx',t_fil, res_fil,'b-')
+    ax.plot(t_lin, R_tot,'rx',t_fil, res_fil,'b-')
     ax.set_title('')
     ax.set_ylabel('Resistance [Ohm]')
     ax.grid(True)
 
     ax = axs1[1]
-    ax.plot(tP_tot, Strain_tot,'rx',t_fil, strain_fil,'b-')
+    ax.plot(t_lin, Strain_tot,'rx',t_fil, strain_fil,'b-')
     ax.set_title('')
     ax.set_ylabel('Strain')
     ax.grid(True)
 
     ax = axs1[2]
-    ax.plot(tF_tot, Stress_tot,'rx',t_fil, stress_fil,'b-')
+    ax.plot(t_lin, Stress_tot,'rx',t_fil, stress_fil,'b-')
     ax.set_title('F')
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
@@ -187,47 +184,60 @@ def main(input_filename, spec_length=40e-3, spec_width=10e-3, spec_thickness=4e-
 
     # Curve fitting code (curve_fit func using non-lin lstsqr)
     # stress(t) = Y * strain * exp^(-(Y/mu)*t)
-    # def f(t, a, b, c, d):
-    #     return a * np.exp(-b * (t-c)) + d
-    #
-    # for i in range(len(i1)):
-    #     Res_load = R_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
-    #
-    #     Strain_load = Strain_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
-    #
-    #     Stress_load = Stress_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
-    #
-    #     t_load = tR_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
-    #     t_load = t_load - t_load[0]
-    #
-    #     # Levenberg–Marquardt algorithm for non-linear leastsq
-    #     poptS, pcovS = optimize.curve_fit(f, t_load, Stress_load)
-    #     poptR, pcovR = optimize.curve_fit(f, t_load, Res_load)
-    #
-    #     print("Stress Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptS[0],poptS[1],poptS[2],poptS[3]))
-    #     print("Resistance Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptR[0],poptR[1],poptR[2],poptR[3]))
-    #     # print("Covar:")
-    #     # print(pcov)
-    #
-    #     t_load_lin = np.linspace(min(t_load),max(t_load) , 20)
-    #     Stress_load_lin = f(t_load_lin,*poptS)
-    #     Res_load_lin = f(t_load_lin,*poptR)
-    #
-    #     fig, axs3 = plt.subplots(2, 1, constrained_layout=True)
-    #
-    #     ax = axs3[0]
-    #     ax.plot(t_load,Stress_load,'bx',t_load_lin,Stress_load_lin,'y-')
-    #     ax.set_title('')
-    #     ax.set_xlabel('Time [s]')
-    #     ax.set_ylabel('Stress [Pa]')
-    #     ax.grid(True)
-    #
-    #     ax = axs3[1]
-    #     ax.plot(t_load,Res_load,'rx',t_load_lin,Res_load_lin,'y-')
-    #     ax.set_title('')
-    #     ax.set_xlabel('Time[s]')
-    #     ax.set_ylabel('Resistance [Ohm]')
-    #     ax.grid(True)
+    def f(t, a, b, c, d):
+        return a * np.exp(-b * (t-c)) + d
+
+    for i in range(4):
+        Res_load = R_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
+
+        Strain_load = Strain_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
+
+        Stress_load = Stress_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
+        Stress_load_fil = stress_fil[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])-6] # MAF data. Leads other data by 6 samples ()
+
+        t_load = t_lin[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
+        t_load = t_load - t_load[0]
+        t_load_fil = t_lin[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])-6] # match size of MAF data
+        t_load_fil = t_load_fil - t_load_fil[0]
+
+        # Levenberg–Marquardt algorithm for non-linear leastsq
+        poptS, pcovS = optimize.curve_fit(f, t_load, Stress_load)
+        poptS_fil, pcovS_fil = optimize.curve_fit(f, t_load_fil, Stress_load_fil,maxfev=50000)
+        poptR, pcovR = optimize.curve_fit(f, t_load, Res_load)
+
+        print("Stress Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptS[0],poptS[1],poptS[2],poptS[3]))
+        print("Stress Formula(filtered):%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptS_fil[0],poptS_fil[1],poptS_fil[2],poptS_fil[3]))
+        print("Resistance Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptR[0],poptR[1],poptR[2],poptR[3]))
+        # print("Covar:")
+        # print(pcov)
+
+        t_load_lin = np.linspace(min(t_load),max(t_load) , 20)
+        Stress_load_lin = f(t_load_lin,*poptS)
+        Stress_load_fil_lin = f(t_load_lin,*poptS_fil)
+        Res_load_lin = f(t_load_lin,*poptR)
+
+        fig, axs3 = plt.subplots(3, 1, constrained_layout=True)
+
+        ax = axs3[0]
+        ax.plot(t_load,Stress_load,'bx',t_load_lin,Stress_load_lin,'y-')
+        ax.set_title('')
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('Stress [Pa]')
+        ax.grid(True)
+
+        ax = axs3[1]
+        ax.plot(t_load_fil,Stress_load_fil,'bx',t_load_lin,Stress_load_fil_lin,'y-')
+        ax.set_title('')
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('Stress [Pa]')
+        ax.grid(True)
+ 
+        ax = axs3[2]
+        ax.plot(t_load,Res_load,'rx',t_load_lin,Res_load_lin,'y-')
+        ax.set_title('')
+        ax.set_xlabel('Time[s]')
+        ax.set_ylabel('Resistance [Ohm]')
+        ax.grid(True)
 
 
     plt.show()
