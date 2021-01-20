@@ -57,6 +57,60 @@ def MAF(x,dx):
         xn.append(x_sum/(2*dx+1))
     return xn
 
+def E1_E2_solver(x,y):
+    """
+    DESCR: Solves quadratic and determines realistic elastic moduli values for
+    SLM (solid linear model). 
+    From equation: 
+       stress(t) =  x*e0 + C*np.exp(-(y/mu)*t)
+    converting to ...
+       stress(t) = (E1*E2)/(E1+E2) * e0 + C*np.exp(-((E1+E2)/mu)*t)
+    IN_PARAMS: x,y
+    NOTES:
+    TODO:
+    """
+    # Finding actual E1 and E2
+    E1 = 0
+    E2 = 0
+    E2_p = (y+np.sqrt(y**2-4*x*y))/2
+    E2_n = (y-np.sqrt(y**2-4*x*y))/2
+    if E2_p > 0 and E2_n < 0:
+        E2 = E2_p
+        E1 = E2 - y
+    elif E2_p > 0 and E2_n >= 0:
+        E1_n = y - E2_n
+        E1_p = y - E2_p
+        if E1_p > 0 and E1_n < 0:
+            E1 = E1_p
+            E2 = E2_p
+        else:
+            E1 = E1_n
+            E2 = E2_n
+            print("Other positive solutions for E1 & E2 may exist.")
+    if E1 == 0 or E2 == 0:
+        E1 = 1
+        E2 = 1
+        print("E1 or E2 equal zero. Non SLM model!")
+    return E1, E2
+
+def find_Rsqr(f, x_data, y_data):
+    """
+    DESCR: Gives the Rsquared value for x/y data fitted to function 'f(x)=y'
+    IN_PARAMS: f(x_data), x data, y data
+    NOTES: 
+    TODO: Alter for use with non-linear function 'f'
+    """
+    SS_tot = 0
+    SS_resid = 0
+    y_avg = sum(y_data)/len(y_data)
+    for i in range(len(x_data)):
+        SS_tot = SS_tot + (y_data[i] - y_avg)**2
+        SS_resid = SS_resid + (y_data[i] - f[i])**2
+    R_sqr = 1 - SS_resid/SS_tot
+    return R_sqr
+    
+    
+
 
 spec_length = 40e-3
 spec_width = 10e-3
@@ -177,16 +231,27 @@ ax.grid(True)
 # Split data into piece-wise data
 strain_splits = split_ramp_data(Strain_tot)
 
-# take a chunk of relaxing values from index i1 to i2
-i1 = [1,5,9,13]
-i2 = [2,6,10,14]
+# take chunks of relaxing values from index i1 to i2
+i1 = []
+i2 = []
+for i in range(int(len(strain_splits)/4)): 
+    i1.append(int(4*i + 1))
+    i2.append(int(4*i + 2))
+    
 
 # Curve fitting code (curve_fit func using non-lin lstsqr)
-# stress(t) = Y * strain * exp^(-(Y/mu)*t)
+e0 = .30
+def g(t,E1,E2,C,mu):
+    return E1*e0 + C*np.exp(-(E2/mu)*t)
+    # return (E1*E2)/(E1+E2) * e0 + C*np.exp(-((E1+E2)/mu)*t)
+    
+def ln_g(t,E1,E2,C,mu):
+    return np.log((E1*E2)/(E1+E2)*e0*C) - ((E1+E2)/mu)*t
+
 def f(t, a, b, c, d):
     return a * np.exp(-b * (t-c)) + d
 
-for i in range(4):
+for i in range(len(i1)):
     Res_load = R_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
 
     Strain_load = Strain_tot[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
@@ -200,22 +265,30 @@ for i in range(4):
     t_load_fil = t_load_fil - t_load_fil[0]
 
     # Levenberg–Marquardt algorithm for non-linear leastsq
-    poptS, pcovS = optimize.curve_fit(f, t_load, Stress_load)
-    poptS_fil, pcovS_fil = optimize.curve_fit(f, t_load_fil, Stress_load_fil,maxfev=50000)
+    poptS_fil, pcovS_fil = optimize.curve_fit(f, t_load_fil, Stress_load_fil, maxfev=50000)
+    poptS, pcovS = optimize.curve_fit(g, t_load, Stress_load, p0=poptS_fil, maxfev=50000)
     poptR, pcovR = optimize.curve_fit(f, t_load, Res_load)
+    
+    x = poptS[0]
+    y = poptS[1]
+    E1,E2 = E1_E2_solver(x,y)
+    
+    # Find Rsqr value:
+    R_sqr = find_Rsqr(g(t_load,E1,E2,poptS[2],poptS[3]), t_load, Stress_load)
 
-    print("Stress Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptS[0],poptS[1],poptS[2],poptS[3]))
+    print("Stress Formula:(E1*E2)/(E1+E2) * e0 + C*np.exp(-((E1+E2)/mu)*t)")
+    print("E1=%.6f E2=%.6f C=%.6f mu=%.6f)" % (E1,E2,poptS[2],poptS[3]))
     print("Stress Formula(filtered):%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptS_fil[0],poptS_fil[1],poptS_fil[2],poptS_fil[3]))
     print("Resistance Formula:%.2f * exp(%.2f*(t-%.2f)) + %.2f" % (poptR[0],poptR[1],poptR[2],poptR[3]))
-    # print("Covar:")
+    print("\n")
     # print(pcov)
 
-    t_load_lin = np.linspace(min(t_load),max(t_load) , 20)
-    Stress_load_lin = f(t_load_lin,*poptS)
+    t_load_lin = np.linspace(min(t_load),max(t_load) , 100)
+    Stress_load_lin = g(t_load_lin,*poptS)
     Stress_load_fil_lin = f(t_load_lin,*poptS_fil)
     Res_load_lin = f(t_load_lin,*poptR)
 
-    fig, axs3 = plt.subplots(3, 1, constrained_layout=True)
+    fig, axs3 = plt.subplots(4, 1, constrained_layout=True)
 
     ax = axs3[0]
     ax.plot(t_load,Stress_load,'bx',t_load_lin,Stress_load_lin,'y-')
@@ -223,15 +296,22 @@ for i in range(4):
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
     ax.grid(True)
-
+    
     ax = axs3[1]
+    ax.plot(t_load,np.log(Stress_load),'bx',t_load_lin,ln_g(t_load_lin,E1,E2,poptS[2],poptS[3]),'y-')
+    ax.set_title('')
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('(Log scale) Stress [Pa]')
+    ax.grid(True)
+
+    ax = axs3[2]
     ax.plot(t_load_fil,Stress_load_fil,'bx',t_load_lin,Stress_load_fil_lin,'y-')
     ax.set_title('')
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
     ax.grid(True)
  
-    ax = axs3[2]
+    ax = axs3[3]
     ax.plot(t_load,Res_load,'rx',t_load_lin,Res_load_lin,'y-')
     ax.set_title('')
     ax.set_xlabel('Time[s]')
