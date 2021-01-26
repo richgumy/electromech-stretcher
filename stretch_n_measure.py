@@ -224,7 +224,7 @@ def init_loadcell_params(loadcell_handle):
         min_val=-5.0e-3, max_val=5.0e-3,
         bridge_config=nidaqmx.constants.BridgeConfiguration.FULL_BRIDGE,
         voltage_excit_source= nidaqmx.constants.ExcitationSource.INTERNAL,
-        voltage_excit_val=2.5, nominal_bridge_resistance=1000.0,
+        voltage_excit_val=10, nominal_bridge_resistance=1000.0,
         electrical_vals= [0, 1, 2, 3, 4],
         electrical_units=nidaqmx.constants.BridgeElectricalUnits.M_VOLTS_PER_VOLT,
         physical_vals=[-1, 0, 1, 2, 3],
@@ -232,7 +232,7 @@ def init_loadcell_params(loadcell_handle):
         custom_scale_name=None)
     loadcell_handle.timing.cfg_samp_clk_timing(100, source="",
         active_edge=Edge.RISING, sample_mode=AcquisitionType.FINITE,
-        samps_per_chan=5)
+        samps_per_chan=1000)
     return 0
 
 
@@ -323,7 +323,7 @@ def main():
     ## Setup 34970a connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    # print(available_devs)
+    print(available_devs)
     # device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
     # ohmmeter = rm.open_resource(available_devs[int(device_index)])
     ohmmeter = rm.open_resource(available_devs[3]) # comment if port unknown

@@ -268,22 +268,22 @@ def main(input_filename):
     # # ax3da = fig3da.add_subplot(111, projection='3d')
     # # ax3da.scatter(V_tot, Strain_tot, R_tot)
     #
-    # # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
-    # A = np.vstack([Strain_tot,np.ones(len(Strain_tot))]).T
-    # model = np.linalg.lstsq(A, Stress_tot, rcond=None)
-    # Y, offset_error= model[0]
-    # resid = model[1]
-    # # Determine the R_square value between 0 and 1. 1 is a strong correlation
-    # R_sqr = 1 - resid/(Stress_tot.size*Stress_tot.var())
-    # print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Y, offset_error, R_sqr))
-    #
-    # Strain_lin = np.linspace(min(Strain_tot),max(Strain_tot) , 5)
-    # Stress_lin = Y * Strain_lin + offset_error
-    #
-    # plt.figure()
-    # ax3 = plt.plot(Strain_tot,Stress_tot,'x',Strain_lin,Stress_lin,'-')
-    # plt.xlabel('Strain')
-    # plt.ylabel('Stress [Pa]')
+    # Use linear least squares to find Young's modulus -> Stress = Y * Strain + offset_error
+    A = np.vstack([Strain_tot,np.ones(len(Strain_tot))]).T
+    model = np.linalg.lstsq(A, Stress_tot, rcond=None)
+    Y, offset_error= model[0]
+    resid = model[1]
+    # Determine the R_square value between 0 and 1. 1 is a strong correlation
+    R_sqr = 1 - resid/(Stress_tot.size*Stress_tot.var())
+    print("Y = %.4f, offset_error = %.4f, R_sqr = %.4f" % (Y, offset_error, R_sqr))
+
+    Strain_lin = np.linspace(min(Strain_tot),max(Strain_tot) , 5)
+    Stress_lin = Y * Strain_lin + offset_error
+
+    plt.figure()
+    ax3 = plt.plot(Strain_tot,Stress_tot,'x',Strain_lin,Stress_lin,'-')
+    plt.xlabel('Strain')
+    plt.ylabel('Stress [Pa]')
 
     plt.show()
 
