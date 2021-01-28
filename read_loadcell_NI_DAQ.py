@@ -37,11 +37,11 @@ task = nidaqmx.Task()
 
 task.ai_channels.add_ai_force_bridge_two_point_lin_chan('cDAQ2Mod3/ai3',
 name_to_assign_to_channel='10kgLoadcell',
-min_val=-2.0, max_val=2.0,
+min_val=-4.0, max_val=10,
 units=nidaqmx.constants.ForceUnits.NEWTONS,
 voltage_excit_val=10,
 nominal_bridge_resistance=1000.0,
-first_electrical_val=0.0483, second_electrical_val=0.121,
+first_electrical_val=0., second_electrical_val=12.09,
 electrical_units=nidaqmx.constants.BridgeElectricalUnits.M_VOLTS_PER_VOLT,
 first_physical_val=0.0, second_physical_val=0.007522,
 physical_units=nidaqmx.constants.BridgePhysicalUnits.NEWTONS)

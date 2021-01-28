@@ -323,7 +323,7 @@ def main():
     ## Setup 34970a connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    print(available_devs)
+    # print(available_devs)
     # device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
     # ohmmeter = rm.open_resource(available_devs[int(device_index)])
     ohmmeter = rm.open_resource(available_devs[3]) # comment if port unknown
