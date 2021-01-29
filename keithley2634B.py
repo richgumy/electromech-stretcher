@@ -87,9 +87,12 @@ class K2634b():
         if not value: # if 'name' isn't found as a function of the class send it as a Lua function
             # Raise AttributeError if attribute value not found.
             self.connection.write('%s.beep(0.5,500)' % name)
-            raise AttributeError(f'{name} doesn\'t exist!.')
+            raise AttributeError()
         # Return attribute value.
         return value
+
+    def multi_getattr(self, attr, default=None):
+        return 0
 
     def connect(self, **kwargs) -> bool:
         """
