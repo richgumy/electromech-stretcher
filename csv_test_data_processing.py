@@ -81,7 +81,7 @@ def main(input_filename):
     F = np.array([])
     tF = np.array([])
 
-    # Write to csv
+    # read from csv
     if (input_filename[-4:] != '.csv'): input_filename = input_filename + '.csv' # Assume file is .csv if not explicitly stated in main parameter input
     with open(input_filename, 'r', newline='') as csvfile:
         data = csv.reader(csvfile, delimiter=',')
