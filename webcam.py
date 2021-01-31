@@ -12,9 +12,9 @@ while(True):
                        [-1, 9,-1],
                        [-1,-1,-1]])
     sharpened = cv2.filter2D(frame, -1, kernel)
-    sharpened_flip = cv2.flip(sharpened, 1);
+    
     # Display the resulting frame
-    cv2.imshow('frame',sharpened_flip)
+    cv2.imshow('frame',sharpened)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 

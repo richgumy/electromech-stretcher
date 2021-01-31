@@ -84,15 +84,63 @@ class K2634b():
         """Returns the attribute matching passed name."""
         # Get internal dict value matching name.
         value = self.__dict__.get(name)
+        # try:
+        #     # check if parsed function is a valid Lua commands
+        #     # valid_cmd = check_lua_table(name) # TODO
+        #     # logger.debug("%s is a valid function", name)
+        #     print("not complete yet")
+        # except AttributeError:
+        # check if parsed function is a valid Lua commands
+        # valid_cmd = check_lua_table(name) # TODO
+        # logger.debug("%s is a valid function", name)
+        logger.info("Attempting Lua cmd '%s'.", name)
         if not value: # if 'name' isn't found as a function of the class send it as a Lua function
             # Raise AttributeError if attribute value not found.
             self.connection.write('%s.beep(0.5,500)' % name)
-            raise AttributeError()
+            self.connection.write("display.clear()")
+            self.connection.write("display.settext('Running all the code')")
+            self.connection.write('smua.abort()')
+            raise AttributeError('hotdawg')
         # Return attribute value.
         return value
 
     def multi_getattr(self, attr, default=None):
+
         return 0
+
+    def starWars(self):
+        """
+        Plays Star Wars main theme song
+        Note+Length:[c2,g2;f1/3,e1/3,d1/3,c2,g1;f1/3,e1/3,d1/3,c2,g1;
+        f1/3,e1/3,f1/3,d2,r1;c2,g2;f1/3,e1/3,d1/3,c2,g1;f1/3,e1/3,d1/3,c2,g1;
+        f1/3,e1/3,f1/3,d2,r1;a3,a1;f1,e1,d1,c1;c1,d1/2,e1/2,d1/2,a1;b3,g1;
+        a3,a1;f1,e1,d1,c1]
+        """
+        song_notes = [('d1',0.33),('d1',0.33),('d1',0.33),('g1',2),('d2',2),('c2',0.33),('b2',0.33)
+        ,('a2',0.33),('g2',2),('d2',1),('c2',0.33),('b2',0.33),('a2',0.33),('g2',2),('d2',1),('c2',0.33),
+        ('b2',0.33),('c2',0.33),('a2',2),('d1',0.33),('d1',0.33),('d1',0.33),('g1',2),('d2',2),('c2',0.33),('b2',0.33)
+        ,('a2',0.33),('g2',2),('d2',1),('c2',0.33),('b2',0.33),('a2',0.33),('g2',2),('d2',1),('c2',0.33),
+        ('b2',0.33),('c2',0.33),('a2',2),('d1',0.75),('d1',0.25),('e1',1.5),('e1',0.5),('c2',0.5),('b2',0.5),
+        ('a2',0.5),('g1',0.5),('g1',0.33),('a2',0.33),('b2',0.33)] # Good enough lol
+        for note in song_notes:
+            self.connection.write('beeper.beep(%.2f,%.2f)' % (note[1]/2, self.getFrequency(note[0])))
+
+    def getFrequency(self, note, A4=440):
+        """
+        Gets frequency for a given note and octave in format "NoteOctave"
+        """
+        notes = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
+
+        octave = int(note[2]) if len(note) == 3 else int(note[1])
+
+        keyNumber = notes.index(note[0:-1]);
+
+        if (keyNumber < 3) :
+            keyNumber = keyNumber + 12 + ((octave - 1) * 12) + 1;
+        else:
+            keyNumber = keyNumber + ((octave - 1) * 12) + 1;
+
+        return A4 * 2** ((keyNumber- 49) / 12)
 
     def connect(self, **kwargs) -> bool:
         """
@@ -136,8 +184,8 @@ class K2634b():
             self.connection = None
             self.connected = False
 
-log_to_screen() #debug mode
+log_to_screen() # debug mode
 k = K2634b('TCPIP0::169.254.0.1::inst0::INSTR')
-k.beeper.beep()
+k.starWars()
 
 k.disconnect()
