@@ -47,13 +47,11 @@ logger = logging.getLogger(__name__)
 logger.addHandler(_ch)
 
 # Use log_to_screen in code to print out logger data
-def log_to_screen(level: int = logging.DEBUG) -> None:
-    log_to_stream(sys.stderr, level)
-
-def log_to_stream(stream_output: Optional[IO], level: int = logging.DEBUG) -> None:
+def log_to_screen(stream_output: Optional[IO] = sys.stderr, level: int = logging.DEBUG) -> None:
     logger.setLevel(level)
     _ch.setStream(stream_output)
     _ch.setLevel(level)
+
 
 # Define class for Keithley2634b smu
 class K2634b():
@@ -96,10 +94,10 @@ class K2634b():
         logger.info("Attempting Lua cmd '%s'.", name)
         if not value: # if 'name' isn't found as a function of the class send it as a Lua function
             # Raise AttributeError if attribute value not found.
-            self.connection.write('%s.beep(0.5,500)' % name)
-            self.connection.write("display.clear()")
-            self.connection.write("display.settext('Running all the code')")
-            self.connection.write('smua.abort()')
+            # self.connection.write('%s.beep(0.5,500)' % name)
+            # self.connection.write("display.clear()")
+            # self.connection.write("display.settext('Running all the code')")
+            # self.connection.write('smua.abort()')
             raise AttributeError('hotdawg')
         # Return attribute value.
         return value
@@ -111,10 +109,6 @@ class K2634b():
     def starWars(self):
         """
         Plays Star Wars main theme song
-        Note+Length:[c2,g2;f1/3,e1/3,d1/3,c2,g1;f1/3,e1/3,d1/3,c2,g1;
-        f1/3,e1/3,f1/3,d2,r1;c2,g2;f1/3,e1/3,d1/3,c2,g1;f1/3,e1/3,d1/3,c2,g1;
-        f1/3,e1/3,f1/3,d2,r1;a3,a1;f1,e1,d1,c1;c1,d1/2,e1/2,d1/2,a1;b3,g1;
-        a3,a1;f1,e1,d1,c1]
         """
         song_notes = [('d1',0.33),('d1',0.33),('d1',0.33),('g1',2),('d2',2),('c2',0.33),('b2',0.33)
         ,('a2',0.33),('g2',2),('d2',1),('c2',0.33),('b2',0.33),('a2',0.33),('g2',2),('d2',1),('c2',0.33),
@@ -122,6 +116,7 @@ class K2634b():
         ,('a2',0.33),('g2',2),('d2',1),('c2',0.33),('b2',0.33),('a2',0.33),('g2',2),('d2',1),('c2',0.33),
         ('b2',0.33),('c2',0.33),('a2',2),('d1',0.75),('d1',0.25),('e1',1.5),('e1',0.5),('c2',0.5),('b2',0.5),
         ('a2',0.5),('g1',0.5),('g1',0.33),('a2',0.33),('b2',0.33)] # Good enough lol
+        # [(NoteOctave,Length),..]
         for note in song_notes:
             self.connection.write('beeper.beep(%.2f,%.2f)' % (note[1]/2, self.getFrequency(note[0])))
 
@@ -186,6 +181,6 @@ class K2634b():
 
 log_to_screen() # debug mode
 k = K2634b('TCPIP0::169.254.0.1::inst0::INSTR')
-k.starWars()
+print(k)
 
 k.disconnect()

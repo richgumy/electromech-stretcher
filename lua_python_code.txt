@@ -1,0 +1,147 @@
+class beeper:
+	def beep(self):
+		self.connection.write("beeper.beep()()")
+	class beep():
+	def enable(self, value=None):
+		if value != None:
+			self.connection.write("beeper.enable = %d" % value)
+		else:
+			self.connection.write("beeperenable = beeper.enable")
+			return self.connection.query("print(beeperenable)")
+def delay(self):
+	self.connection.write("delay()()")
+class delay():
+class display:
+	def clear(self):
+		self.connection.write("display.clear()()")
+	class clear():
+	def getcursor(self):
+		self.connection.write("display.getcursor()()")
+	def gettext(self):
+		self.connection.write("display.gettext()()")
+	def settext(self):
+		self.connection.write("display.settext()()")
+			def digits(self, value=None):
+			if value != None:
+				self.connection.write("display.smuX.digits = %d" % value)
+			else:
+				self.connection.write("displaysmuXdigits = display.smuX.digits")
+				return self.connection.query("print(displaysmuXdigits)")
+						def func(self, value=None):
+				if value != None:
+					self.connection.write("display.smuX.limit.func = %d" % value)
+				else:
+					self.connection.write("displaysmuXlimitfunc = display.smuX.limit.func")
+					return self.connection.query("print(displaysmuXlimitfunc)")
+						def func(self, value=None):
+				if value != None:
+					self.connection.write("display.smuX.measure.func = %d" % value)
+				else:
+					self.connection.write("displaysmuXmeasurefunc = display.smuX.measure.func")
+					return self.connection.query("print(displaysmuXmeasurefunc)")
+def makegetter(self):
+	self.connection.write("makegetter()()")
+class makegetter():
+def makesetter(self):
+	self.connection.write("makesetter()()")
+class makesetter():
+def print(self):
+	self.connection.write("print()()")
+class print():
+def PulseIMeasureV(self):
+	self.connection.write("PulseIMeasureV()()")
+class PulseIMeasureV():
+def PulseVMeasureI(self):
+	self.connection.write("PulseVMeasureI()()")
+class PulseVMeasureI():
+class os:
+	def time(self):
+		self.connection.write("os.time()()")
+	class time():
+class smuX:
+	def makebuffer(self):
+		self.connection.write("smuX.makebuffer()()")
+	class makebuffer():
+			def count(self, value=None):
+			if value != None:
+				self.connection.write("smuX.measure.count = %d" % value)
+			else:
+				self.connection.write("smuXmeasurecount = smuX.measure.count")
+				return self.connection.query("print(smuXmeasurecount)")
+						def enable(self, value=None):
+				if value != None:
+					self.connection.write("smuX.measure.filter.enable = %d" % value)
+				else:
+					self.connection.write("smuXmeasurefilterenable = smuX.measure.filter.enable")
+					return self.connection.query("print(smuXmeasurefilterenable)")
+						def type(self, value=None):
+				if value != None:
+					self.connection.write("smuX.measure.filter.type = %d" % value)
+				else:
+					self.connection.write("smuXmeasurefiltertype = smuX.measure.filter.type")
+					return self.connection.query("print(smuXmeasurefiltertype)")
+			def interval(self, value=None):
+			if value != None:
+				self.connection.write("smuX.measure.interval = %d" % value)
+			else:
+				self.connection.write("smuXmeasureinterval = smuX.measure.interval")
+				return self.connection.query("print(smuXmeasureinterval)")
+						def 0plc(self, value=None):
+				if value != None:
+					self.connection.write("smuX.measure.nplc # default 1.0plc = %d" % value)
+				else:
+					self.connection.write("smuXmeasurenplc # default 10plc = smuX.measure.nplc # default 1.0plc")
+					return self.connection.query("print(smuXmeasurenplc # default 10plc)")
+			def v(self):
+			self.connection.write("smuX.measure.v()()")
+			def i(self):
+			self.connection.write("smuX.measure.i()()")
+			def r(self):
+			self.connection.write("smuX.measure.r()()")
+			def p(self):
+			self.connection.write("smuX.measure.p()()")
+	def reset(self):
+		self.connection.write("smuX.reset()()")
+	def savebuffer(self):
+		self.connection.write("smuX.savebuffer()()")
+	def sense(self, value=None):
+		if value != None:
+			self.connection.write("smuX.sense = %d" % value)
+		else:
+			self.connection.write("smuXsense = smuX.sense")
+			return self.connection.query("print(smuXsense)")
+			def levelv(self, value=None):
+			if value != None:
+				self.connection.write("smuX.source.levelv = %d" % value)
+			else:
+				self.connection.write("smuXsourcelevelv = smuX.source.levelv")
+				return self.connection.query("print(smuXsourcelevelv)")
+			def leveli(self, value=None):
+			if value != None:
+				self.connection.write("smuX.source.leveli = %d" % value)
+			else:
+				self.connection.write("smuXsourceleveli = smuX.source.leveli")
+				return self.connection.query("print(smuXsourceleveli)")
+			def limitv(self, value=None):
+			if value != None:
+				self.connection.write("smuX.source.limitv = %d" % value)
+			else:
+				self.connection.write("smuXsourcelimitv = smuX.source.limitv")
+				return self.connection.query("print(smuXsourcelimitv)")
+			def limiti(self, value=None):
+			if value != None:
+				self.connection.write("smuX.source.limiti = %d" % value)
+			else:
+				self.connection.write("smuXsourcelimiti = smuX.source.limiti")
+				return self.connection.query("print(smuXsourcelimiti)")
+			def output(self, value=None):
+			if value != None:
+				self.connection.write("smuX.source.output = %d" % value)
+			else:
+				self.connection.write("smuXsourceoutput = smuX.source.output")
+				return self.connection.query("print(smuXsourceoutput)")
+class timer:
+		class measure:
+		def t(self):
+			self.connection.write("timer.measure.t()()")
+		class t():

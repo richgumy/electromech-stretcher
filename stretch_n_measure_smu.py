@@ -1,19 +1,19 @@
 """
-FILE: main.py
+FILE: stretch_n_measure_smu.py
 AUTHOR: R Ellingham
-DATE: Oct 2020
+DATE CREATED: Oct 2020
+DATE MODIFIED: Feb 2021
 PROGRAM DESC: Gather data from a stretched conductive elastomer in real time
-using serial communication. Writing the data to a CSV file ready for analysis
+using serial communication. Writing the data to a CSV file ready for analysis.
 
 Parameters measured:
 -> Resistance, Strain, Force, and Time (for each individual measurement)
 
 TODO:
 1) Complete data processing functions
-2) Minimise all instructions while data being recorded (use post-processing as
-much as possible)
-3) Make object oriented GUI so other people can use it? nah...
-4) rename prog
+2) Minimise all instructions while data being recorded (use post-processing and
+onboard measurement device buffers as much as possible)
+3) Make object oriented GUI so other people can use it?
 """
 
 import csv
@@ -321,15 +321,15 @@ def main():
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 
-    ## Setup 34970a connection
+    ## Setup SMU connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    # print(available_devs)
-    device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
-    ohmmeter = rm.open_resource(available_devs[int(device_index)])
+    print(available_devs)
+    device_index = input("Which device address from the list? (eg. index 0 or 1 or 2 or ...):")
+    ohmmeter = K2600(available_devs[int(device_index)])
     # ohmmeter = rm.open_resource(available_devs[3]) # comment if port unknown
     print("Connecting to %s..." % available_devs[int(device_index)])
-    init_ohmmeter_params(ohmmeter)
+    ohmmeter.display.smua.measure.func(ohmmeter,ohmmeter.display.MEASURE_OHMS)
 
     ## Setup loadcell connection
     loadcell = nidaqmx.Task()
@@ -346,84 +346,6 @@ def main():
     force_data = []
     time_data_force = []
 
-    # compression_data = [["current_resistance", "measure_time", "time_taken", "thickness"]]
-    # single_sided_electrode_data = [["current_resistance(single electrode)", "measure_time(single electrode)", "time_taken(single electrode"]]
-    #
-    # # Begin manual testing
-    # start_time = time.time() # ref time for manual testing
-    # test_specimen_num = input("Input test specimen num:")
-    #
-    # specimen_thickness = float(input("What is the approx. specimen thickness(in mm)?"))
-    # compressed_thickness = input("Enter the compressed test thickness of the test specimen(mm):")
-    #
-    # compress_test_ans = input("Compression resistivity test?(y or n):")
-    # if compress_test_ans == 'y':
-    #     # Read compression data
-    #     print("Electrode compression test")
-    #     print("==========================")
-    #     res_input = input("Press enter to read resistance for single-sided electrode test")
-    #     for i in range(5):
-    #         single_sided_electrode_data.append(read_ohmmeter(ohmmeter,0)) # function ouputs [current_resistance, measure_time, time_taken]
-    #         print(" %.4f Ohms in %.4f s" % (single_sided_electrode_data[i+1][0], single_sided_electrode_data[i+1][2]))
-    #
-    #     num_compr_str = 4
-    #     num_compr_res_sample = 5
-    #     i_compr_ld = 0
-    #     i_compr_uld = 0
-    #     res_input = 0
-    #
-    #     # Loading clamps with compressive strain
-    #     while ((res_input != "q") and (i_compr_ld != num_compr_str)):
-    #         res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
-    #         for i in range(num_compr_res_sample):
-    #             compress_n_strain = read_ohmmeter(ohmmeter,0)
-    #             compress_n_strain.append(specimen_thickness)
-    #             compression_data.append(compress_n_strain)
-    #             print(compression_data[(i_compr_ld*num_compr_res_sample)+1+i])
-    #         specimen_thickness = specimen_thickness - 0.5 # 0.5mm pitch for M3 bolt
-    #         i_compr_ld = i_compr_ld + 1
-    #         print(i_compr_ld)
-    #         print("Turn each clamp bolt 1 CW revolution")
-    #
-    #     # Unloading clamps of compressive strain
-    #     while ((res_input != "q") and (i_compr_uld != num_compr_str)):
-    #         print("Now turn each clamp bolt 1 CCW revolution")
-    #         res_input = input("Press enter to read resistance or 'q' to quit to the next stage")
-    #         for i in range(num_compr_res_sample):
-    #             compress_n_strain = read_ohmmeter(ohmmeter,0)
-    #             compress_n_strain.append(specimen_thickness)
-    #             compression_data.append(compress_n_strain)
-    #             print(compression_data[(i_compr_ld*num_compr_res_sample+i_compr_uld*num_compr_res_sample)+1+i])
-    #         specimen_thickness = specimen_thickness + 0.5 # 0.5mm pitch for M3 bolt
-    #         i_compr_uld = i_compr_uld + 1
-    #         print(i_compr_uld)
-    #
-    #
-    #     format_compr_list = [["Specimen thickness:",specimen_thickness],["Test compressed thickness:",compressed_thickness]]
-    #
-    #     compression_filename = "compression_resistance_#%s" % (test_specimen_num)
-    #     with open(compression_filename+'.csv', 'w', newline='') as csvfile:
-    #         data = csv.writer(csvfile, delimiter=',')
-    #         print(compression_data)
-    #         for i in range(len(compression_data)):
-    #             if i <= 1:
-    #                 data.writerow(stringify_list(compression_data[i],1)+stringify_list(single_sided_electrode_data[i],1)+stringify_list(format_compr_list[0][i],1)+stringify_list(format_compr_list[1][i],1))
-    #             else:
-    #                 data.writerow(stringify_list(compression_data[i],1))
-
-    # # TODO: make a parsing error handler for manual jog mode
-    # jog_input = input("Enter jog input in mm. Enter 'a' for auto zero cal OR 'q' to manually set zero(start) position:")
-    # if jog_input == 'a':
-    #     auto_zero_cal(loadcell,s,0.1) # moves stretcher until measured force is zero'd or close enough (f < tol)
-    # else:
-    #     while (jog_input != "q"):
-    #         linear_travel(s, "150", str(jog_input)) # (s, "speed" , "dist")
-    #         if jog_input == 'f':
-    #             raw_data = loadcell.read(1) # read 1 data point
-    #             force = 452.29*float(raw_data[0]) + 98.155
-    #             print(force)
-    #         jog_input = input("Enter jog dist OR 'f' for force measurement >>")
-
     # set new zero
     write_g(s,"G90")
     write_g(s,"G10 P0 L20 X0 Y0 Z0")
@@ -436,9 +358,9 @@ def main():
     ####################################
     ### Set velocity profile params: ###
     ####################################
-    step_profile = [0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
-    velocity_profile = [0] # set travel speeds in mm/s
-    lag_delay = 40
+    step_profile = [-3,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
+    velocity_profile = [100] # set travel speeds in mm/s
+    relax_delay = 10 # amount of time(s) to record the resistive and stress relaxation
 
     ###
     # Begin measurement loop
@@ -454,7 +376,7 @@ def main():
             current_pos = 0 # init for while loop condition
             lag_start = 0 # to capture data from just after the strain has stopped
             lag = 0
-            while ((float(current_pos) != float(step)) or (lag < lag_delay)):
+            while ((float(current_pos) != float(step)) or (lag < relax_delay)):
                 if (lag_start == 0) and (float(current_pos) >= float(step)):
                     lag_start = time.time()
                 if float(current_pos) >= float(step):
@@ -467,10 +389,15 @@ def main():
                 time_data_pos.append(current_time)
 
                 # Read resistance
-                current_res, t_avg, t_d = read_ohmmeter(ohmmeter, start_time)
+                r_start_time = time.time() - start_time
+                current_res = float(ohmmeter.smua.measure.r(ohmmeter))
+                r_stop_time = time.time() - start_time
+                t_d = r_stop_time - r_start_time
+                t_avg = (r_stop_time + r_start_time)/2
                 res_data.append(current_res)
                 avg_time_data_res.append(t_avg)
                 time_data_res.append(t_d)
+                print(current_res)
 
                 # Read force
                 raw_data = loadcell.read(1) # read 1 data
@@ -481,7 +408,7 @@ def main():
                 force_data.append(force)
                 current_time = time.time() - start_time
                 time_data_force.append(current_time)
-                print(force)
+                # print(force)
             step_counter = step_counter + 1
             print("Step complete", step_counter)
 
@@ -516,11 +443,12 @@ def main():
         fig.savefig(filename)
 
 
-    # Wait here until grbl is finished to close serial port and file.
-    input("Press <Enter> to exit and stop serial Grbl communications.")
-
+    print("Disconnecting serial and pyvisa connections...")
+    # Close smu pyvisa connection
+    ohmmeter.disconnect()
     # Close serial port
     s.close()
+    print("done")
 
     return 0
 

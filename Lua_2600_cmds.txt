@@ -1,3 +1,4 @@
+test.test
 beeper.beep()
 beeper.enable 
 bit.bitand() 
