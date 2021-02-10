@@ -18,7 +18,7 @@ def main(test):
     if test == 0:
         k.display.smua.measure.func(k,k.display.MEASURE_OHMS) # display ohms measurement
 
-        k.smua.sense(k,k.smua.SENSE_LOCAL) # choose resistance measurement config`
+        # k.smua.sense(k,k.smua.SENSE_LOCAL) # choose resistance measurement config`
 
         k.smua.source.leveli(k,10e-6) # set current source value
 
@@ -51,19 +51,20 @@ def main(test):
         k.smua.measure.nplc(k,1) # set number of powerline cycle to integrate over for volts measurement to 1
         k.smub.measure.nplc(k,1)
 
-        k.smua.source.output(k,1) # turn on channel b
-        k.smub.source.output(k,1) # turn on channel a
+        k.smua.source.output(k,1) # turn on channel a
+        k.smub.source.output(k,1) # turn on channel b
 
         for sample in range(10):
             # take x measurements of resistance
             ia = k.smua.measure.i(k)
             va = k.smua.measure.v(k)
             vb = k.smub.measure.v(k)
-            print(ia,"A(a)\t",end='')
-            print(va,"V(a)\t",end='')
-            print(vb,"V(b)\t",end='')
-            print(float(va)/float(ia),"ohms(a)\t",end='')
-            print(float(vb)/float(ia),"ohms(b)")
+            print(ia,"A(a) ",end='')
+            print(va,"V(a) ",end='')
+            print(vb,"V(b) ",end='')
+            print(float(va)/float(ia),"ohms(a) ",end='')
+            print(float(vb)/float(ia),"ohms(b) ",end='')
+            print()
             time.sleep(0.5)
 
         k.disconnect() # disconnects smus and shuts off both a&b output channels

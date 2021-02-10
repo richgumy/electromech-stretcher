@@ -321,25 +321,25 @@ class K2600:
         class source:
             def levelv(self, value=None):
                 if value != None:
-                    self.connection.write("smua.source.levelv = %d" % value)
+                    self.connection.write("smua.source.levelv = %.5f" % value)
                 else:
                     self.connection.write("levelv_var = smua.source.levelv")
                     return self.connection.query("print(levelv_var)")
             def leveli(self, value=None):
                 if value != None:
-                    self.connection.write("smua.source.leveli = %d" % value)
+                    self.connection.write("smua.source.leveli = %.5f" % value)
                 else:
                     self.connection.write("leveli_var = smua.source.leveli")
                     return self.connection.query("print(leveli_var)")
             def limitv(self, value=None):
                 if value != None:
-                    self.connection.write("smua.source.limitv = %d" % value)
+                    self.connection.write("smua.source.limitv = %.5f" % value)
                 else:
                     self.connection.write("limitv_var = smua.source.limitv")
                     return self.connection.query("print(limitv_var)")
             def limiti(self, value=None):
                 if value != None:
-                    self.connection.write("smua.source.limiti = %d" % value)
+                    self.connection.write("smua.source.limiti = %.5f" % value)
                 else:
                     self.connection.write("limiti_var = smua.source.limiti")
                     return self.connection.query("print(limiti_var)")
@@ -437,33 +437,33 @@ class K2600:
         class source:
             def levelv(self, value=None):
                 if value != None:
-                    self.connection.write("smub.source.levelv = %d" % value)
+                    self.connection.write("smub.source.levelv = %.5f" % value)
                 else:
                     self.connection.write("levelv_var = smub.source.levelv")
                     return self.connection.query("print(levelv_var)")
             def leveli(self, value=None):
                 if value != None:
-                    self.connection.write("smub.source.leveli = %d" % value)
+                    self.connection.write("smub.source.leveli = %.5f" % value)
                 else:
                     self.connection.write("leveli_var = smub.source.leveli")
                     return self.connection.query("print(leveli_var)")
             def limitv(self, value=None):
                 if value != None:
-                    self.connection.write("smub.source.limitv = %d" % value)
+                    self.connection.write("smub.source.limitv = %.5f" % value)
                 else:
                     self.connection.write("limitv_var = smub.source.limitv")
                     return self.connection.query("print(limitv_var)")
             def limiti(self, value=None):
                 if value != None:
-                    self.connection.write("smub.source.limiti = %d" % value)
+                    self.connection.write("smub.source.limiti = %.5f" % value)
                 else:
                     self.connection.write("limiti_var = smub.source.limiti")
                     return self.connection.query("print(limiti_var)")
             def func(self, value=None):
                 if value != None:
-                    self.connection.write("smua.source.func = %d" % value)
+                    self.connection.write("smub.source.func = %d" % value)
                 else:
-                    self.connection.write("func_var = smua.source.func")
+                    self.connection.write("func_var = smub.source.func")
                     return self.connection.query("print(func_var)")
             def output(self, value=None):
                 if value != None:

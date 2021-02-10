@@ -10,10 +10,11 @@ Parameters measured:
 -> Resistance, Strain, Force, and Time (for each individual measurement)
 
 TODO:
-1) Complete data processing functions
+1) use 'try' and 'finally' statements for ctrl+c KeyboardInterrupt safer program
+shutdown
 2) Minimise all instructions while data being recorded (use post-processing and
 onboard measurement device buffers as much as possible)
-3) Make object oriented GUI so other people can use it?
+3)
 """
 
 import csv
@@ -28,8 +29,9 @@ from nidaqmx.constants import LineGrouping
 from nidaqmx.constants import Edge
 from nidaqmx.constants import AcquisitionType
 from k2600 import K2600 # see k2600.py for usage
+import k2600
 
-MAX_LOADCELL_FORCE = 100 # Maximum loadcell force in Newtons
+MAX_LOADCELL_FORCE = 6.5 # Maximum loadcell force in Newtons
 
 ### Linear actuator functions:
 def write_g(serial_handle, msg):
@@ -165,75 +167,98 @@ def list_serial_devices():
 
 
 
-### Ohmmeter data acquisition functions:
-def init_ohmmeter_params(ohmmeter_handle):
+### 4/2 wire ohmmeter data acquisition functions:
+def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
     """
-    DESCR: Initialise parameters for ohmmeter
-    IN_PARAMS: N/A
+    DESCR: Initialise parameters for the use of the smu as a 2 or 4 wire ohmmeter.
+    Using smua as the outer connection (or 2 wire). 2 wire is default.
+    IN_PARAMS: Current source current value, current source max voltage
     OUTPUT: N/A
-    NOTES:  Requires pyvisa library
-    TODO: Add input params
+    NOTES:  Requires pyvisa and k2600 library
+    TODO: create a 2wire version
     """
-    ohmmeter_handle.baud_rate = 115200
-    ohmmeter_handle.timeout = 5000
+    if num_wire == 2:
+        smu_handle.display.screen(smu_handle,smu_handle.display.SMUA) # display both SMUA on screen
+        smu_handle.display.smua.measure.func(smu_handle,smu_handle.display.MEASURE_OHMS) # display ohms measurement
 
-    ohmmeter_handle.write(":CONF:RES AUTO,1000,(@101)") #set range and resolution of resistance measurements
-    ohmmeter_handle.write(":ROUT:CHAN:DEL 0,(@101)") #set delay between scans
-    ohmmeter_handle.write(":SENS:RES:NPLC 1,(@101)") #set PLC(i.e. 50Hz power line cycle for NZ) to 0.02 for 400us integration time... or higher for better noise suppression
-    ohmmeter_handle.write("ROUT:SCAN (@101)") # Set scan channel
-    ohmmeter_handle.write(":TRIG:COUNT 1") # Set number of measurements taken each scan
+        smu_handle.smua.source.leveli(smu_handle,outer_I) # set current source value
+
+        smu_handle.smua.source.limitv(smu_handle,outer_Vmax) # set voltage limit (if too low this may restrict the current sourced)
+
+        smu_handle.smua.source.output(smu_handle,1) # turn on channel a
+
+    elif num_wire == 4:
+        smu_handle.display.screen(smu_handle,smu_handle.display.SMUA_SMUB) # display both SMUs on screen
+        # smu_handle.display.smua.measure.func(smu_handle,smu_handle.display.MEASURE_DCVOLTS) # display volt measurement on smu
+        # smu_handle.display.smub.measure.func(smu_handle,smu_handle.display.MEASURE_DCVOLTS)
+
+        smu_handle.smua.source.func(smu_handle,smu_handle.smua.OUTPUT_DCAMPS) # set output mode to dc amps (current source)
+        smu_handle.smub.source.func(smu_handle,smu_handle.smub.OUTPUT_DCAMPS)
+
+        smu_handle.smua.source.leveli(smu_handle,outer_I) # set current source values
+        smu_handle.smub.source.leveli(smu_handle,0)
+
+        smu_handle.smua.source.limitv(smu_handle,outer_Vmax) # set voltage limit (if too low this may restrict the current sourced)
+        smu_handle.smub.source.limitv(smu_handle,outer_Vmax)
+
+        smu_handle.smua.measure.nplc(smu_handle,nplc) # set number of powerline cycle to integrate over for volts measurement to 1
+        smu_handle.smub.measure.nplc(smu_handle,nplc)
+
+        smu_handle.smua.source.output(smu_handle,1) # turn on channel a
+        smu_handle.smub.source.output(smu_handle,1) # turn on channel b
 
     return 0
 
-def read_ohmmeter(ohmmeter_handle,start_time, timeout=10000):
+def read_smu_res(smu_handle, num_wire=2):
     """
-    DESCR: Read ohmmeter resistance, will timeout if nothing recieved within timeout period (default 10s)
+    DESCR: Gives a resistance reading
     IN_PARAMS: Start time, timeout
     OUTPUT: Current resistance reading, average time since start time, time taken for reading
-    NOTES:  Requgires pyvisa library
+    NOTES:  Requires pyvisa,time and k2600 libraries
     TODO: Add input params
     """
+    outer_res = 0
+    inner_res = 0
     t_s = time.time()
-    ohmmeter_handle.write(":INIT") # Begin scan
-    time.sleep(0.002) # Wait for scan to finish
-    current_res = ohmmeter_handle.query("R?")
-    time_out_R = 0;
-    while len(current_res) <= 4: # If scan not finished keep requesting until result appears
-        current_res = ohmmeter_handle.query("R?")
-        time_out_R = time_out_R + 1
-        if time_out_R > 10000:
-            print("Ohmmeter timeout error.")
-            break
-    current_res = float(current_res.strip()[5:-4])*10**float(current_res.strip()[-1:]) # Waste of processing time
+    if num_wire == 2:
+        # ia = float(smu_handle.smua.measure.i(smu_handle))
+        # va = float(smu_handle.smua.measure.v(smu_handle))
+        # outer_res = -va/ia
+        outer_res = float(smu_handle.smua.measure.r(smu_handle))
+    elif num_wire == 4:
+        ia = float(smu_handle.smua.measure.i(smu_handle))
+        va = float(smu_handle.smua.measure.v(smu_handle))
+        vb = float(smu_handle.smub.measure.v(smu_handle))
+        outer_res = va/ia
+        inner_res = vb/ia
     t_f = time.time()
-    t_avg = (t_f + t_s)/2-start_time # Record time of measurement halfway between when measurement was requested and when it was received, assuming continuous integration
-    t_d = t_f - t_s # How long did it take to receive the message from time of request
-    return [current_res, t_avg, t_d]
+    t_d = t_f - t_s
+    print("td:",t_d)
+    current_res = [outer_res, inner_res]
+    return [current_res, t_d]
 
 ### Load cell data acquisition functions:
 def init_loadcell_params(loadcell_handle):
     """
-    DESCR: Initialise parameters for loadcell
+    DESCR: Initialise parameters for 500g tal221 loadcell
     IN_PARAMS: N/A
     OUTPUT: N/A
     NOTES:  Requires nidaqmx & nidaqmx.constants libraries
     TODO: Add input params
     """
-    #adding ABRITRARY linear table of values for load cell reading, got lazy and will scale later
-    loadcell_handle.ai_channels.add_ai_force_bridge_table_chan("cDAQ2Mod3/ai3",
-        name_to_assign_to_channel="10kgLoadcell",
-        min_val=-5.0e-3, max_val=5.0e-3,
-        bridge_config=nidaqmx.constants.BridgeConfiguration.FULL_BRIDGE,
-        voltage_excit_source= nidaqmx.constants.ExcitationSource.INTERNAL,
-        voltage_excit_val=10, nominal_bridge_resistance=1000.0,
-        electrical_vals= [0, 1, 2, 3, 4],
-        electrical_units=nidaqmx.constants.BridgeElectricalUnits.M_VOLTS_PER_VOLT,
-        physical_vals=[-1, 0, 1, 2, 3],
-        physical_units=nidaqmx.constants.BridgePhysicalUnits.NEWTONS,
-        custom_scale_name=None)
-    loadcell_handle.timing.cfg_samp_clk_timing(100, source="",
-        active_edge=Edge.RISING, sample_mode=AcquisitionType.FINITE,
-        samps_per_chan=1000)
+    loadcell_handle.ai_channels.add_ai_force_bridge_two_point_lin_chan('cDAQ2Mod3/ai3',
+    name_to_assign_to_channel='500gLoadcell',
+    min_val=-5.0, max_val=5.0,
+    units=nidaqmx.constants.ForceUnits.NEWTONS,
+    voltage_excit_val=6,
+    bridge_config=nidaqmx.constants.BridgeConfiguration.FULL_BRIDGE,
+    nominal_bridge_resistance=1000.0,
+    first_electrical_val=0.0079, second_electrical_val=-0.683,
+    electrical_units=nidaqmx.constants.BridgeElectricalUnits.M_VOLTS_PER_VOLT,
+    first_physical_val=0.0, second_physical_val=4.905,
+    physical_units=nidaqmx.constants.BridgePhysicalUnits.NEWTONS)
+
+    loadcell_handle.timing.cfg_samp_clk_timing(10000, samps_per_chan=10)
     return 0
 
 
@@ -279,6 +304,13 @@ def stringify_list(in_list, dimension=1):
             new_list1.append(str(in_list[i1]))
     return new_list1
 
+def average_list(in_list):
+    sum = 0
+    for item in in_list:
+        sum = sum + float(item)
+    return sum/len(in_list)
+
+## Zero force calibration function
 def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
     """
     DESCR: Basic proportional controller to calibrate zero force position for
@@ -324,12 +356,14 @@ def main():
     ## Setup SMU connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    print(available_devs)
-    device_index = input("Which device address from the list? (eg. index 0 or 1 or 2 or ...):")
-    ohmmeter = K2600(available_devs[int(device_index)])
-    # ohmmeter = rm.open_resource(available_devs[3]) # comment if port unknown
-    print("Connecting to %s..." % available_devs[int(device_index)])
-    ohmmeter.display.smua.measure.func(ohmmeter,ohmmeter.display.MEASURE_OHMS)
+    # print(available_devs)
+    # device_index = input("Which device address from the list? (eg. index 0 or 1 or 2 or ...):")
+    # ohmmeter = K2600(available_devs[int(device_index)])
+    ohmmeter = K2600(available_devs[3])
+    meas_wires = 2 # is it a 2 or 4 wire resistance measurement?
+    I_src = 10e-6 # constant current source value
+    V_max = 20 # max current source value
+    init_smu_ohmmeter_params(ohmmeter,I_src,V_max,num_wire=meas_wires)
 
     ## Setup loadcell connection
     loadcell = nidaqmx.Task()
@@ -350,17 +384,12 @@ def main():
     write_g(s,"G90")
     write_g(s,"G10 P0 L20 X0 Y0 Z0")
 
-    # Send desired motion g-code to grbl
-    # set_travel_input = input("Set step profile (i.e.[-3,-6,-3,0] stretch material 3mm, 6mm, 3mm ... for strains of 10%, 20%, 10% ...\n>>")
-    # set_speed_input = input("How zoomy shall we do the stretchy? [mm/min]: ")
-    # linear_travel(s, set_speed_input, set_travel_input) # (s, "speed" , "dist")
-
     ####################################
     ### Set velocity profile params: ###
     ####################################
     step_profile = [-3,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
-    velocity_profile = [100] # set travel speeds in mm/s
-    relax_delay = 10 # amount of time(s) to record the resistive and stress relaxation
+    velocity_profile = [140] # set travel speeds in mm/s
+    relax_delay = 20 # amount of time(s) to record the resistive and stress relaxation
 
     ###
     # Begin measurement loop
@@ -372,7 +401,6 @@ def main():
         for step in step_profile:
             linear_travel(s, velocity, step)
             print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
-            # print("%s" %                   readbuf_g(s))
             current_pos = 0 # init for while loop condition
             lag_start = 0 # to capture data from just after the strain has stopped
             lag = 0
@@ -389,40 +417,35 @@ def main():
                 time_data_pos.append(current_time)
 
                 # Read resistance
-                r_start_time = time.time() - start_time
-                current_res = float(ohmmeter.smua.measure.r(ohmmeter))
+                current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
                 r_stop_time = time.time() - start_time
-                t_d = r_stop_time - r_start_time
-                t_avg = (r_stop_time + r_start_time)/2
+                t_avg = r_stop_time - t_d/2
                 res_data.append(current_res)
                 avg_time_data_res.append(t_avg)
                 time_data_res.append(t_d)
-                print(current_res)
+                # print(current_res)
 
                 # Read force
-                raw_data = loadcell.read(1) # read 1 data
-                # below scale factors calibrated 14/12/2020
-                force = 460*float(raw_data[0]) + 100.02 # scale data to Newtons !waste of processing time!? meh
-                if (force > MAX_LOADCELL_FORCE):
+                t_s_force = time.time()
+                raw_f_data = loadcell.read(2) # read 2 data points from buffer
+                force_avg = average_list(raw_f_data)
+                if (force_avg > MAX_LOADCELL_FORCE):
                     raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
-                force_data.append(force)
+                t_f_force = time.time()
+                t_d_force = t_f_force - t_s_force
+                print(t_d_force)
+                force_data.append(force_avg)
                 current_time = time.time() - start_time
                 time_data_force.append(current_time)
-                # print(force)
+                # print(force_avg)
             step_counter = step_counter + 1
-            print("Step complete", step_counter)
+            print("Step complete ", step_counter)
 
 
     # Write data to CSV file
     filename = input("CSV file name? !Caution will overwrite files without warning!: ")
     write_PosResForce_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
         force_data, time_data_force)
-
-    # Data processing
-    # - Best line of fit and R-square values
-    # - FFT to see vibrations
-    # - Elastic modulus
-    # -
 
 
     # Plot all data
