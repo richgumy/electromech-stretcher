@@ -14,11 +14,14 @@ TODO:
 shutdown
 2) Minimise all instructions while data being recorded (use post-processing and
 onboard measurement device buffers as much as possible)
-3)
+3) Create log to save the state of the code itself upon execution and save any
+user inputs (like the csv filename)
+4)
 """
 
 import csv
 import matplotlib.pyplot as plt
+import numpy as np
 import serial
 import serial.tools.list_ports
 import time
@@ -179,11 +182,15 @@ def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
     """
     if num_wire == 2:
         smu_handle.display.screen(smu_handle,smu_handle.display.SMUA) # display both SMUA on screen
-        smu_handle.display.smua.measure.func(smu_handle,smu_handle.display.MEASURE_OHMS) # display ohms measurement
+        # smu_handle.display.smua.measure.func(smu_handle,smu_handle.display.MEASURE_OHMS) # display ohms measurement
+
+        smu_handle.smua.source.func(smu_handle,smu_handle.smua.OUTPUT_DCAMPS) # set output mode to dc amps (current source)
 
         smu_handle.smua.source.leveli(smu_handle,outer_I) # set current source value
 
         smu_handle.smua.source.limitv(smu_handle,outer_Vmax) # set voltage limit (if too low this may restrict the current sourced)
+
+        smu_handle.smua.measure.nplc(smu_handle,nplc) # set number of powerline cycle to integrate over for volts measurement to 1
 
         smu_handle.smua.source.output(smu_handle,1) # turn on channel a
 
@@ -221,10 +228,10 @@ def read_smu_res(smu_handle, num_wire=2):
     inner_res = 0
     t_s = time.time()
     if num_wire == 2:
-        # ia = float(smu_handle.smua.measure.i(smu_handle))
-        # va = float(smu_handle.smua.measure.v(smu_handle))
-        # outer_res = -va/ia
-        outer_res = float(smu_handle.smua.measure.r(smu_handle))
+        ia = float(smu_handle.smua.measure.i(smu_handle))
+        va = float(smu_handle.smua.measure.v(smu_handle))
+        outer_res = va/ia
+        # outer_res = float(smu_handle.smua.measure.r(smu_handle))
     elif num_wire == 4:
         ia = float(smu_handle.smua.measure.i(smu_handle))
         va = float(smu_handle.smua.measure.v(smu_handle))
@@ -233,7 +240,7 @@ def read_smu_res(smu_handle, num_wire=2):
         inner_res = vb/ia
     t_f = time.time()
     t_d = t_f - t_s
-    print("td:",t_d)
+    # print("td:",t_d)
     current_res = [outer_res, inner_res]
     return [current_res, t_d]
 
@@ -246,7 +253,7 @@ def init_loadcell_params(loadcell_handle):
     NOTES:  Requires nidaqmx & nidaqmx.constants libraries
     TODO: Add input params
     """
-    loadcell_handle.ai_channels.add_ai_force_bridge_two_point_lin_chan('cDAQ2Mod3/ai3',
+    loadcell_handle.ai_channels.add_ai_force_bridge_two_point_lin_chan('cDAQ1Mod3/ai3',
     name_to_assign_to_channel='500gLoadcell',
     min_val=-5.0, max_val=5.0,
     units=nidaqmx.constants.ForceUnits.NEWTONS,
@@ -349,7 +356,7 @@ def main():
     # print(avail_devs)
     # device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
     # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
-    s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    s = serial.Serial("COM8",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 
@@ -387,28 +394,33 @@ def main():
     ####################################
     ### Set velocity profile params: ###
     ####################################
-    step_profile = [-3,0] # travel 3mm, 6mm ... for strains of 10%, 20% ...
-    velocity_profile = [140] # set travel speeds in mm/s
-    relax_delay = 20 # amount of time(s) to record the resistive and stress relaxation
+    step_profile = [-4,0,-4,0]
+    # step_profile = [-4,0,-4,0,-4,0,-8,0,-8,0,-8,0,-12,0,-12,0,-12,0] # travel x1mm... for strains of 10%, 20% ...
+    velocity_profile = [100] # set travel speeds in mm/s
+    relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
     ###
     # Begin measurement loop
     ###
     print("Reading data...")
     step_counter = 0
-    start_time = time.time() # ref time reset for automated test procedure
+    start_time = time.time() # ref time reset for automated test
     for velocity in velocity_profile:
         for step in step_profile:
             linear_travel(s, velocity, step)
             print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
             current_pos = 0 # init for while loop condition
-            lag_start = 0 # to capture data from just after the strain has stopped
-            lag = 0
-            while ((float(current_pos) != float(step)) or (lag < relax_delay)):
-                if (lag_start == 0) and (float(current_pos) >= float(step)):
-                    lag_start = time.time()
-                if float(current_pos) >= float(step):
-                    lag = time.time() - lag_start
+            # lag_start = 0 # to capture data from just after the strain has stopped
+            # lag = 0
+            diff_avg = 100000
+            diff_buf = np.ones(100) * diff_avg
+            iter = 0
+            while (diff_avg > 100) and (iter < 2000): # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
+            # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
+            #     if (lag_start == 0) and (float(current_pos) >= float(step)):
+            #         lag_start = time.time()
+            #     if float(current_pos) >= float(step):
+            #         lag = time.time() - lag_start
 
                 # Read position
                 current_pos = read_pos(s)
@@ -423,6 +435,19 @@ def main():
                 res_data.append(current_res)
                 avg_time_data_res.append(t_avg)
                 time_data_res.append(t_d)
+                # differentiate resistance data to determine when relaxation has stopped
+                if iter > 2:
+                    # print(res_data[-2])
+                    # print(current_res[0])
+                    # print(avg_time_data_res[-2])
+                    # print(t_avg)
+                    diff_res = abs(res_data[-2][0] - current_res[0])/abs(avg_time_data_res[-2] - t_avg)
+                    diff_buf = np.append(diff_buf,diff_res)
+                    diff_buf = np.delete(diff_buf,0)
+                    diff_avg = sum(diff_buf)/len(diff_buf)
+                    print('dR',diff_res)
+                    print('dR_av',diff_avg)
+                    print('diff_buf',diff_buf)
                 # print(current_res)
 
                 # Read force
@@ -433,11 +458,13 @@ def main():
                     raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
                 t_f_force = time.time()
                 t_d_force = t_f_force - t_s_force
-                print(t_d_force)
+                # print(t_d_force)
                 force_data.append(force_avg)
                 current_time = time.time() - start_time
                 time_data_force.append(current_time)
                 # print(force_avg)
+
+                iter = iter + 1
             step_counter = step_counter + 1
             print("Step complete ", step_counter)
 

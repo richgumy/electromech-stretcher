@@ -55,13 +55,11 @@ def auto_zero_crtl(loadcell_handle, serial_handle, tolerance):
 def main(tolerance): # Tolerance = How close to zero force/stress is close enough?
     ## Setup grbl serial coms:
     avail_devs = list_serial_devices()
-    s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    print(avail_devs)
+    dev = input("What is the index of the desired COM port? ")
+    s = serial.Serial(avail_devs[int(dev)],115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
-
-    ## Setup 34970a connection
-    rm = pyvisa.ResourceManager()
-    available_devs = rm.list_resources()
 
     ## Setup loadcell connection
     loadcell = nidaqmx.Task()
