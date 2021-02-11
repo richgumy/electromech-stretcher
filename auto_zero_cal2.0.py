@@ -33,9 +33,8 @@ def auto_zero_crtl(loadcell_handle, serial_handle, tolerance):
     Ki = 0.1 # control I gain constant
     while abs(error) > tolerance:
         for i in range(buf_size):
-            raw_data = loadcell_handle.read(1) # read 1 data point
-            f_buf[i] = 452.29*float(raw_data[0]) + 98.155 # magical cal nums to get force into newtons
-        force_av = sum(f_buf)/len(f_buf)
+            raw_data = loadcell_handle.read(2) # read 1 data point
+        force_av = sum(raw_data)/len(raw_data)
         print('force:%.5fN' % force_av)
         error = Kp*force_av + Ki*(error - error_prev)
         print('error:%.5f' % error)
@@ -48,18 +47,14 @@ def auto_zero_crtl(loadcell_handle, serial_handle, tolerance):
         time.sleep(wait_time) # add a bit of settling time for stress relaxation
     time.sleep(2)
     for i in range(buf_size):
-        raw_data = loadcell_handle.read(1) # read 1 data point
-        f_buf[i] = 452.29*float(raw_data[0]) + 98.155 # magical cal nums to get force into newtons
-    force = sum(f_buf)/len(f_buf)
+        raw_data = loadcell_handle.read(2) # read 1 data point
+    force = sum(raw_data)/len(raw_data)
     print("Final force = %.5fN" % force)
     time.sleep(2)
 
 def main(tolerance): # Tolerance = How close to zero force/stress is close enough?
     ## Setup grbl serial coms:
     avail_devs = list_serial_devices()
-    # print(avail_devs)
-    # device_index = int(input("Which linear actuator device from the list? (eg. index 0 or 1 or 2 or ...):"))
-    # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
     s = serial.Serial("COM4",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
@@ -67,12 +62,6 @@ def main(tolerance): # Tolerance = How close to zero force/stress is close enoug
     ## Setup 34970a connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
-    # print(available_devs)
-    # device_index = input("Which DAQ device from the list? (eg. index 0 or 1 or 2 or ...):")
-    # ohmmeter = rm.open_resource(available_devs[int(device_index)])
-    ohmmeter = rm.open_resource(available_devs[3]) # comment if port unknown
-    print("Connecting to 34970a DAQ unit...")
-    init_ohmmeter_params(ohmmeter)
 
     ## Setup loadcell connection
     loadcell = nidaqmx.Task()
