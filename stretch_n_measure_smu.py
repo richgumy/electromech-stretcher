@@ -485,6 +485,7 @@ def main():
     log_file.write('filename='+filename+'\n')
     log_file.write('step profile='+str(step_profile)+'\n')
     log_file.write('velocity profile='+str(velocity_profile)+'\n')
+    log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+I_src+', Vmax='+V_max+'\n')
     log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
     log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
     log_file.close()
