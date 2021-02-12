@@ -25,6 +25,7 @@ import numpy as np
 import serial
 import serial.tools.list_ports
 import time
+from datetime import datetime
 import re
 import pyvisa
 import nidaqmx
@@ -415,7 +416,9 @@ def main():
             diff_avg = 100000
             diff_buf = np.ones(100) * diff_avg
             iter = 0
-            while (diff_avg > 100) and (iter < 2000): # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
+            diff_min = 100
+            iter_max = 2000
+            while (diff_avg > diff_min) and (iter < iter_max): # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
             # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
             #     if (lag_start == 0) and (float(current_pos) >= float(step)):
             #         lag_start = time.time()
@@ -470,10 +473,21 @@ def main():
 
 
     # Write data to CSV file
-    filename = input("CSV file name? !Caution will overwrite files without warning!: ")
+    filename = input("File name? !Caution will overwrite files without warning!: ")
     write_PosResForce_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
         force_data, time_data_force)
 
+    # Open function to open the file "log.txt"
+    # (same directory) in append mode and
+    log_file = open("log.txt","a")
+    log_file.write(str(datetime.date(datetime.now()))+'\n')
+    log_file.write(str(datetime.time(datetime.now()))+'\n')
+    log_file.write('filename='+filename+'\n')
+    log_file.write('step profile='+str(step_profile)+'\n')
+    log_file.write('velocity profile='+str(velocity_profile)+'\n')
+    log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
+    log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
+    log_file.close()
 
     # Plot all data
     plot_q = input("Plot all data?")

@@ -65,7 +65,8 @@ def main(input_filename, spec_length=40e-3, spec_width=10e-3, spec_thickness=4e-
     NOTES: Not well tested.
     TODO:
     """
-    R = np.array([])
+    Rout = np.array([])
+    Rin = np.array([])
     tR = np.array([])
     P = np.array([])
     tP = np.array([])
@@ -82,12 +83,13 @@ def main(input_filename, spec_length=40e-3, spec_width=10e-3, spec_thickness=4e-
                 # print(f'Column names are {", ".join(row)}')
                 line_count = 1
             else:
-                R = np.append(R,float(row[0]))
-                tR = np.append(tR,float(row[1]))
-                P = np.append(P,float(row[2]))
-                tP = np.append(tP,float(row[3]))
-                F = np.append(F,float(row[4]))
-                tF = np.append(tF,float(row[5]))
+                Rout = np.append(R,float(row[0]))
+                Rin = np.append(R,float(row[1]))
+                tR = np.append(tR,float(row[2]))
+                P = np.append(P,float(row[3]))
+                tP = np.append(tP,float(row[4]))
+                F = np.append(F,float(row[5]))
+                tF = np.append(tF,float(row[6]))
                 # print(row[0],row[1],row[2],row[3],row[4],row[5])
 
     # Interpolate all data
@@ -231,7 +233,7 @@ def main(input_filename, spec_length=40e-3, spec_width=10e-3, spec_thickness=4e-
         ax.set_xlabel('Time [s]')
         ax.set_ylabel('Stress [Pa]')
         ax.grid(True)
- 
+
         ax = axs3[2]
         ax.plot(t_load,Res_load,'rx',t_load_lin,Res_load_lin,'y-')
         ax.set_title('')
