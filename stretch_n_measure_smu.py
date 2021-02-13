@@ -14,9 +14,8 @@ TODO:
 shutdown
 2) Minimise all instructions while data being recorded (use post-processing and
 onboard measurement device buffers as much as possible)
-3) Create log to save the state of the code itself upon execution and save any
-user inputs (like the csv filename)
-4)
+3) Change diff resistance from absolute to normal
+4) If program stops mid sequence complete auto_cal_zero function
 """
 
 import csv
@@ -272,10 +271,10 @@ def init_loadcell_params(loadcell_handle):
 
 
 ## Data processing fucntions:
-def write_PosResForce_to_CSV(filename,resistance, time_R, displacement, time_d, force, time_f):
+def write_PosResForce_to_CSV(filename,resistance_outer, resistance_inner, time_R, displacement, time_d, force, time_f):
     """
     DESCR: Loads 6 columns of data into a filename.csv file
-    IN_PARAMS: resistance, displacement, force, and their timestamps
+    IN_PARAMS: resistance(outer electrodes), resistance (inner electrodes), displacement, force, and their timestamps
     OUTPUT: N/A
     NOTES:  Requires all inputs to be present to operate
     TODO: Make more generalised function for different data logging
@@ -283,7 +282,7 @@ def write_PosResForce_to_CSV(filename,resistance, time_R, displacement, time_d, 
     with open(filename+'.csv', 'w', newline='') as csvfile:
         data = csv.writer(csvfile, delimiter=',')
         for i in range(len(time_R)):
-            data.writerow([resistance[i], time_R[i], displacement[i], time_d[i],
+            data.writerow([resistance_outer[i],resistance_inner[i], time_R[i], displacement[i], time_d[i],
                 force[i], time_f[i]])
     return 0
 
@@ -321,34 +320,37 @@ def average_list(in_list):
 ## Zero force calibration function
 def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
     """
-    DESCR: Basic proportional controller to calibrate zero force position for
-    stretching device.
+    DESCR: Rough PI controller to get stress in test rig to zero
     IN_PARAMS: loadcell_handle, serial_handle, zero tolerance [N]
     NOTES: Not well tested.
     TODO:
     """
     error = tolerance*2 # start error bigger than tolerance
-    buf_size = 100
+    error_prev = 0
+    buf_size = 40
     f_buf = [0]*buf_size
-    speed = 100
-    Kp = 1 # control gain constant
+    speed = 180
+    Kp = 2.5 # control P gain constant
+    Ki = 0.1 # control I gain constant
     while abs(error) > tolerance:
         for i in range(buf_size):
-            raw_data = loadcell_handle.read(1) # read 1 data point
-            f_buf[i] = 452.29*float(raw_data[0]) + 98.155 # magic nums to get force into newtons
-            sleep(0.001) # Allow material to 'settle' and gain a better average
-        force_av = sum(f_buf)/len(f_buf)
-        print(force_av)
-        error = Kp*force_av
+            raw_data = loadcell_handle.read(2) # read 1 data point
+        force_av = sum(raw_data)/len(raw_data)
+        print('force:%.5fN' % force_av)
+        error = Kp*force_av + Ki*(error - error_prev)
+        print('error:%.5f' % error)
         if error > 2 : error = 2
         if error < -2 : error = -2
         linear_travel(serial_handle, str(speed), str(error)) # (s, "speed" , "dist")
-        print(abs(error)/speed)
-        time.sleep((abs(error)/speed)) # add a bit of settling time for stress relaxation
+        wait_time = abs(float(error)/float(speed))
+        print('t=%.5f' % wait_time)
+        prev_error = error
+        time.sleep(wait_time) # add a bit of settling time for stress relaxation
     time.sleep(2)
-    raw_data = loadcell_handle.read(1) # read 1 data point
-    force = 452.29*float(raw_data[0]) + 98.155 # magic nums to get force into newtons
-    print("Final force ="+str(force))
+    for i in range(buf_size):
+        raw_data = loadcell_handle.read(2) # read 1 data point
+    force = sum(raw_data)/len(raw_data)
+    print("Final force = %.5fN" % force)
     time.sleep(2)
 
 def main():
@@ -368,7 +370,7 @@ def main():
     # device_index = input("Which device address from the list? (eg. index 0 or 1 or 2 or ...):")
     # ohmmeter = K2600(available_devs[int(device_index)])
     ohmmeter = K2600(available_devs[3])
-    meas_wires = 2 # is it a 2 or 4 wire resistance measurement?
+    meas_wires = 4 # is it a 2 or 4 wire resistance measurement?
     I_src = 10e-6 # constant current source value
     V_max = 20 # max current source value
     init_smu_ohmmeter_params(ohmmeter,I_src,V_max,num_wire=meas_wires)
@@ -381,7 +383,8 @@ def main():
     pos_data = []
     time_data_pos = []
 
-    res_data = []
+    res_data_o = []
+    res_data_i = []
     time_data_res = []
     avg_time_data_res = []
 
@@ -398,122 +401,127 @@ def main():
     step_profile = [-4,0,-4,0]
     # step_profile = [-4,0,-4,0,-4,0,-8,0,-8,0,-8,0,-12,0,-12,0,-12,0] # travel x1mm... for strains of 10%, 20% ...
     velocity_profile = [100] # set travel speeds in mm/s
-    relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
+    # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
     ###
     # Begin measurement loop
     ###
-    print("Reading data...")
-    step_counter = 0
-    start_time = time.time() # ref time reset for automated test
-    for velocity in velocity_profile:
-        for step in step_profile:
-            linear_travel(s, velocity, step)
-            print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
-            current_pos = 0 # init for while loop condition
-            # lag_start = 0 # to capture data from just after the strain has stopped
-            # lag = 0
-            diff_avg = 100000
-            diff_buf = np.ones(100) * diff_avg
-            iter = 0
-            diff_min = 100
-            iter_max = 2000
-            while (diff_avg > diff_min) and (iter < iter_max): # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
-            # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
-            #     if (lag_start == 0) and (float(current_pos) >= float(step)):
-            #         lag_start = time.time()
-            #     if float(current_pos) >= float(step):
-            #         lag = time.time() - lag_start
+    try:
+        print("Reading data...")
+        step_counter = 0
+        start_time = time.time() # ref time reset for automated test
+        for velocity in velocity_profile:
+            for step in step_profile:
+                linear_travel(s, velocity, step)
+                print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
+                current_pos = 0 # init for while loop condition
+                # lag_start = 0 # to capture data from just after the strain has stopped
+                # lag = 0
+                diff_avg = 100000
+                diff_buf = np.ones(200)*diff_avg
+                iter = 0
+                diff_min = 8
+                iter_max = 2000
+                iter_min = len(diff_buf)
+                while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
+                # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
+                #     if (lag_start == 0) and (float(current_pos) >= float(step)):
+                #         lag_start = time.time()
+                #     if float(current_pos) >= float(step):
+                #         lag = time.time() - lag_start
 
-                # Read position
-                current_pos = read_pos(s)
-                current_time = time.time() - start_time
-                pos_data.append(current_pos)
-                time_data_pos.append(current_time)
+                    # Read position
+                    current_pos = read_pos(s)
+                    current_time = time.time() - start_time
+                    pos_data.append(current_pos)
+                    time_data_pos.append(current_time)
 
-                # Read resistance
-                current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
-                r_stop_time = time.time() - start_time
-                t_avg = r_stop_time - t_d/2
-                res_data.append(current_res)
-                avg_time_data_res.append(t_avg)
-                time_data_res.append(t_d)
-                # differentiate resistance data to determine when relaxation has stopped
-                if iter > 2:
-                    # print(res_data[-2])
-                    # print(current_res[0])
-                    # print(avg_time_data_res[-2])
-                    # print(t_avg)
-                    diff_res = abs(res_data[-2][0] - current_res[0])/abs(avg_time_data_res[-2] - t_avg)
-                    diff_buf = np.append(diff_buf,diff_res)
-                    diff_buf = np.delete(diff_buf,0)
-                    diff_avg = sum(diff_buf)/len(diff_buf)
-                    print('dR',diff_res)
-                    print('dR_av',diff_avg)
-                    print('diff_buf',diff_buf)
-                # print(current_res)
+                    # Read resistance
+                    current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
+                    r_stop_time = time.time() - start_time
+                    t_avg = r_stop_time - t_d/2
+                    res_data_o.append(current_res[0])
+                    res_data_i.append(current_res[1])
+                    avg_time_data_res.append(t_avg)
+                    time_data_res.append(t_d)
+                    # differentiate (outer electrode) resistance data to determine when relaxation has stopped
+                    if iter > 2:
+                        # print(res_data[-2])
+                        # print(current_res[0])
+                        # print(avg_time_data_res[-2])
+                        # print(t_avg)
+                        diff_res = (res_data_o[-2] - current_res[0])/(avg_time_data_res[-2] - t_avg)
+                        diff_buf = np.append(diff_buf,diff_res)
+                        diff_buf = np.delete(diff_buf,0)
+                        diff_avg = sum(diff_buf)/len(diff_buf)
+                        # print('dR',diff_res)
+                        print('dR_av',diff_avg)
+                        print('diff_buf',diff_buf)
+                    # print(current_res)
 
-                # Read force
-                t_s_force = time.time()
-                raw_f_data = loadcell.read(2) # read 2 data points from buffer
-                force_avg = average_list(raw_f_data)
-                if (force_avg > MAX_LOADCELL_FORCE):
-                    raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
-                t_f_force = time.time()
-                t_d_force = t_f_force - t_s_force
-                # print(t_d_force)
-                force_data.append(force_avg)
-                current_time = time.time() - start_time
-                time_data_force.append(current_time)
-                # print(force_avg)
+                    # Read force
+                    t_s_force = time.time()
+                    raw_f_data = loadcell.read(2) # read 2 data points from buffer
+                    force_avg = average_list(raw_f_data)
+                    if (force_avg > MAX_LOADCELL_FORCE):
+                        raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
+                    t_f_force = time.time()
+                    t_d_force = t_f_force - t_s_force
+                    # print(t_d_force)
+                    force_data.append(force_avg)
+                    current_time = time.time() - start_time
+                    time_data_force.append(current_time)
+                    # print(force_avg)
 
-                iter = iter + 1
-            step_counter = step_counter + 1
-            print("Step complete ", step_counter)
+                    iter = iter + 1
+                step_counter = step_counter + 1
+                print("Step complete ", step_counter)
 
+        # Write data to CSV file
+        filename = input("File name? !Caution will overwrite files without warning!\n (e.g sample number+CB %+electrode type+distance between electrodes+repetitions of test=\n=samp1_CB7-5_Epin_20mm_v2):")
+        write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
+            force_data, time_data_force)
 
-    # Write data to CSV file
-    filename = input("File name? !Caution will overwrite files without warning!: ")
-    write_PosResForce_to_CSV(filename,res_data, avg_time_data_res, pos_data, time_data_pos,
-        force_data, time_data_force)
+        # Open function to open the file "log.txt"
+        # (same directory) in append mode and
+        log_file = open("log.txt","a")
+        log_file.write(str(datetime.date(datetime.now()))+'\n')
+        log_file.write(str(datetime.time(datetime.now()))+'\n')
+        log_file.write('filename='+filename+'\n')
+        log_file.write('step profile='+str(step_profile)+'\n')
+        log_file.write('velocity profile='+str(velocity_profile)+'\n')
+        log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+'\n')
+        log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
+        log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
+        log_file.write(' \n')
+        log_file.close()
 
-    # Open function to open the file "log.txt"
-    # (same directory) in append mode and
-    log_file = open("log.txt","a")
-    log_file.write(str(datetime.date(datetime.now()))+'\n')
-    log_file.write(str(datetime.time(datetime.now()))+'\n')
-    log_file.write('filename='+filename+'\n')
-    log_file.write('step profile='+str(step_profile)+'\n')
-    log_file.write('velocity profile='+str(velocity_profile)+'\n')
-    log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+I_src+', Vmax='+V_max+'\n')
-    log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
-    log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
-    log_file.close()
+        # Plot all data
+        plot_q = input("Plot all data?")
+        if (plot_q == 'y'):
+            fig, (ax1, ax2, ax3) = plt.subplots(3)
 
-    # Plot all data
-    plot_q = input("Plot all data?")
-    if (plot_q == 'y'):
-        fig, (ax1, ax2, ax3) = plt.subplots(3)
+            ax1.plot(avg_time_data_res, res_data_o)
+            ax1.set(ylabel='Resistance[Ohm]')
 
-        ax1.plot(avg_time_data_res, res_data)
-        ax1.set(ylabel='Resistance[Ohm]')
+            ax2.plot(time_data_pos, pos_data)
+            ax2.set(ylabel='Position[mm]')
 
-        ax2.plot(time_data_pos, pos_data)
-        ax2.set(ylabel='Position[mm]')
+            ax3.plot(time_data_force, force_data)
+            ax3.set(xlabel='Time[s]', ylabel='Force[N]')
 
-        ax3.plot(time_data_force, force_data)
-        ax3.set(xlabel='Time[s]', ylabel='Force[N]')
+            plt.show()
+            fig.savefig(filename)
 
-        plt.show()
-        fig.savefig(filename)
-
-
-    print("Disconnecting serial and pyvisa connections...")
-    # Close smu pyvisa connection
-    ohmmeter.disconnect()
-    # Close serial port
-    s.close()
-    print("done")
+    finally: # if test sequence stops abruptly...
+        # zero the specimen
+        auto_zero_cal(loadcell, s, 0.005)
+        print("Disconnecting serial and pyvisa connections...")
+        # Close smu pyvisa connection
+        ohmmeter.disconnect()
+        # Close serial port
+        s.close()
+        print("done")
 
     return 0
 

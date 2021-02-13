@@ -7,18 +7,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 
-step_profile = [1,2,3]
-filename = "test this juan"
+plt.plot([0,1,2,3,4], [0,2,6,9,6])
+plt.switch_backend('QT5Agg')
+mng = plt.get_current_fig_manager() # maximise plot window
+mng.frame.Maximize(True)
+plt.show()
+fig.savefig(filename)
 
-log_file = open("log.txt","a")
-log_file.write(str(datetime.date(datetime.now()))+'\n')
-log_file.write(str(datetime.time(datetime.now()))+'\n')
-log_file.write('filename='+filename+'\n')
-log_file.write('step profile='+str(step_profile)+'\n')
-log_file.write('velocity profile='+str(velocity_profile)+'\n')
-log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
-log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
-log_file.close()
+#
+# step_profile = [1,2,3]
+# filename = "test this juan"
+#
+# log_file = open("log.txt","a")
+# log_file.write(str(datetime.date(datetime.now()))+'\n')
+# log_file.write(str(datetime.time(datetime.now()))+'\n')
+# log_file.write('filename='+filename+'\n')
+# log_file.write('step profile='+str(step_profile)+'\n')
+# log_file.write('velocity profile='+str(velocity_profile)+'\n')
+# log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
+# log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
+# log_file.close()
 
 
 # def main(input_filename):
