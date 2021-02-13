@@ -7,13 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 
-plt.plot([0,1,2,3,4], [0,2,6,9,6])
-plt.switch_backend('QT5Agg')
-mng = plt.get_current_fig_manager() # maximise plot window
-mng.frame.Maximize(True)
-plt.show()
-fig.savefig(filename)
-
 #
 # step_profile = [1,2,3]
 # filename = "test this juan"

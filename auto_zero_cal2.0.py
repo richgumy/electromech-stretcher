@@ -30,7 +30,7 @@ def auto_zero_crtl(loadcell_handle, serial_handle, tolerance):
     f_buf = [0]*buf_size
     speed = 180
     Kp = 2 # control P gain constant
-    Ki = 0.1 # control I gain constant
+    Ki = 0.2 # control I gain constant
     while abs(error) > tolerance:
         for i in range(buf_size):
             raw_data = loadcell_handle.read(2) # read 1 data point

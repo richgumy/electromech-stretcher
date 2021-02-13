@@ -1,4 +1,4 @@
-!!DO NOT ALTER THIS LOG FILE!!
+!!DO NOT DELETE ANYTHING FROM THIS LOG FILE!!
  
 2021-02-12
 14:44:44.257870
@@ -127,4 +127,46 @@ MEASUREMENT:
  num wires=4, Isrc=1e-05, Vmax=20
 diff_min(convergence checker)=10
 iter_max(convergence timeout)=2000
+ 
+2021-02-13
+15:41:14.473515
+filename=test15 
+step profile=[-4, 0, -4, 0, -4, 0, 0, -8, 0, -8, 0, -8, 0, 0, -12, 0, -12, 0, -12, 0, 0]
+velocity profile=[100, 200]
+MEASUREMENT:(copper electrodes 20mm apart)
+ num wires=4, Isrc=1e-05, Vmax=20
+diff_min(convergence checker)=8
+iter_max(convergence timeout)=2000
+ 
+2021-02-13
+17:31:53.129579
+filename=1_7-5_Epin_20mm_v1
+step profile=[-4, 0, -4, 0, -4, 0, -4, 0, 0, -8, 0, -8, 0, -8, 0, -8, 0, 0, -12, 0, -12, 0, -12, 0, -12, 0, 0]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=1e-05, Vmax=20
+diff_min(convergence checker)=5
+iter_max(convergence timeout)=2000
+ 
+2021-02-13
+18:39:10.537144
+filename=1_7-5_Epin_20mm_v2
+step profile=[-4, 0, -4, 0, -4, 0, -4, 0, 0, -8, 0, -8, 0, -8, 0, -8, 0, 0, -12, 0, -12, 0, -12, 0, -12, 0, 0]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=1e-05, Vmax=20
+diff_min(convergence checker)=4
+iter_max(convergence timeout)=2000
+iter_min=600.0
+ 
+2021-02-13
+20:54:02.049182
+filename=1_7-5_Epin_20mm_v3
+step profile=[-4, 0, -4, 0, -4, 0, -4, 0, 0, -8, 0, -8, 0, -8, 0, -8, 0, 0, -12, 0, -12, 0, -12, 0, -12, 0, 0]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=1e-05, Vmax=20
+diff_min(convergence checker)=0.5
+iter_max(convergence timeout)=2000
+iter_min=600.0
  

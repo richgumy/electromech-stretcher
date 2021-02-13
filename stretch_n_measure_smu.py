@@ -330,8 +330,8 @@ def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
     buf_size = 40
     f_buf = [0]*buf_size
     speed = 180
-    Kp = 2.5 # control P gain constant
-    Ki = 0.1 # control I gain constant
+    Kp = 2 # control P gain constant
+    Ki = 0.2 # control I gain constant
     while abs(error) > tolerance:
         for i in range(buf_size):
             raw_data = loadcell_handle.read(2) # read 1 data point
@@ -398,9 +398,9 @@ def main():
     ####################################
     ### Set velocity profile params: ###
     ####################################
-    step_profile = [-4,0,-4,0]
+    step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
     # step_profile = [-4,0,-4,0,-4,0,-8,0,-8,0,-8,0,-12,0,-12,0,-12,0] # travel x1mm... for strains of 10%, 20% ...
-    velocity_profile = [100] # set travel speeds in mm/s
+    velocity_profile = [200] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
     ###
@@ -417,12 +417,12 @@ def main():
                 current_pos = 0 # init for while loop condition
                 # lag_start = 0 # to capture data from just after the strain has stopped
                 # lag = 0
-                diff_avg = 100000
-                diff_buf = np.ones(200)*diff_avg
+                diff_avg = -100000
+                diff_buf = np.ones(400)*diff_avg
                 iter = 0
-                diff_min = 8
+                diff_min = 0.5
                 iter_max = 2000
-                iter_min = len(diff_buf)
+                iter_min = len(diff_buf)*1.5
                 while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
                 # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
                 #     if (lag_start == 0) and (float(current_pos) >= float(step)):
@@ -455,8 +455,8 @@ def main():
                         diff_buf = np.delete(diff_buf,0)
                         diff_avg = sum(diff_buf)/len(diff_buf)
                         # print('dR',diff_res)
-                        print('dR_av',diff_avg)
-                        print('diff_buf',diff_buf)
+                        print('dR/dt_avg:',diff_avg)
+                        # print('diff_buf',diff_buf)
                     # print(current_res)
 
                     # Read force
@@ -493,6 +493,7 @@ def main():
         log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+'\n')
         log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
         log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
+        log_file.write('iter_min='+str(iter_min)+'\n')
         log_file.write(' \n')
         log_file.close()
 
