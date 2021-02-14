@@ -398,8 +398,9 @@ def main():
     ####################################
     ### Set velocity profile params: ###
     ####################################
-    step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
-    # step_profile = [-4,0,-4,0,-4,0,-8,0,-8,0,-8,0,-12,0,-12,0,-12,0] # travel x1mm... for strains of 10%, 20% ...
+    # step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
+    step_profile = [-4,0]
+    repeats = 100
     velocity_profile = [100] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
@@ -410,72 +411,73 @@ def main():
         print("Reading data...")
         step_counter = 0
         start_time = time.time() # ref time reset for automated test
-        for velocity in velocity_profile:
-            for step in step_profile:
-                linear_travel(s, velocity, step)
-                print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
-                current_pos = 0 # init for while loop condition
-                # lag_start = 0 # to capture data from just after the strain has stopped
-                # lag = 0
-                diff_avg = -100000
-                diff_buf = np.ones(400)*diff_avg
-                iter = 0
-                diff_min = 0.05
-                iter_max = 2000
-                iter_min = len(diff_buf)*1.5
-                while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
-                # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
-                #     if (lag_start == 0) and (float(current_pos) >= float(step)):
-                #         lag_start = time.time()
-                #     if float(current_pos) >= float(step):
-                #         lag = time.time() - lag_start
+        for repeat in range(repeats):
+            for velocity in velocity_profile:
+                for step in step_profile:
+                    linear_travel(s, velocity, step)
+                    print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
+                    current_pos = 0 # init for while loop condition
+                    # lag_start = 0 # to capture data from just after the strain has stopped
+                    # lag = 0
+                    diff_avg = -100000
+                    diff_buf = np.ones(400)*diff_avg
+                    iter = 0
+                    diff_min = 0.1
+                    iter_max = 2000
+                    iter_min = len(diff_buf)*1.5
+                    while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
+                    # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
+                    #     if (lag_start == 0) and (float(current_pos) >= float(step)):
+                    #         lag_start = time.time()
+                    #     if float(current_pos) >= float(step):
+                    #         lag = time.time() - lag_start
 
-                    # Read position
-                    current_pos = read_pos(s)
-                    current_time = time.time() - start_time
-                    pos_data.append(current_pos)
-                    time_data_pos.append(current_time)
+                        # Read position
+                        current_pos = read_pos(s)
+                        current_time = time.time() - start_time
+                        pos_data.append(current_pos)
+                        time_data_pos.append(current_time)
 
-                    # Read resistance
-                    current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
-                    r_stop_time = time.time() - start_time
-                    t_avg = r_stop_time - t_d/2
-                    res_data_o.append(current_res[0])
-                    res_data_i.append(current_res[1])
-                    avg_time_data_res.append(t_avg)
-                    time_data_res.append(t_d)
-                    # differentiate (outer electrode) resistance data to determine when relaxation has stopped
-                    if iter > 2:
-                        # print(res_data[-2])
-                        # print(current_res[0])
-                        # print(avg_time_data_res[-2])
-                        # print(t_avg)
-                        diff_res = (res_data_o[-2] - current_res[0])/(avg_time_data_res[-2] - t_avg)
-                        diff_buf = np.append(diff_buf,diff_res)
-                        diff_buf = np.delete(diff_buf,0)
-                        diff_avg = sum(diff_buf)/len(diff_buf)
-                        # print('dR',diff_res)
-                        print('dR/dt_avg:',diff_avg)
-                        # print('diff_buf',diff_buf)
-                    # print(current_res)
+                        # Read resistance
+                        current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
+                        r_stop_time = time.time() - start_time
+                        t_avg = r_stop_time - t_d/2
+                        res_data_o.append(current_res[0])
+                        res_data_i.append(current_res[1])
+                        avg_time_data_res.append(t_avg)
+                        time_data_res.append(t_d)
+                        # differentiate (outer electrode) resistance data to determine when relaxation has stopped
+                        if iter > 2:
+                            # print(res_data[-2])
+                            # print(current_res[0])
+                            # print(avg_time_data_res[-2])
+                            # print(t_avg)
+                            diff_res = (res_data_o[-2] - current_res[0])/(avg_time_data_res[-2] - t_avg)
+                            diff_buf = np.append(diff_buf,diff_res)
+                            diff_buf = np.delete(diff_buf,0)
+                            diff_avg = sum(diff_buf)/len(diff_buf)
+                            # print('dR',diff_res)
+                            print('dR/dt_avg:',diff_avg)
+                            # print('diff_buf',diff_buf)
+                        # print(current_res)
 
-                    # Read force
-                    t_s_force = time.time()
-                    raw_f_data = loadcell.read(2) # read 2 data points from buffer
-                    force_avg = average_list(raw_f_data)
-                    if (force_avg > MAX_LOADCELL_FORCE):
-                        raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
-                    t_f_force = time.time()
-                    t_d_force = t_f_force - t_s_force
-                    # print(t_d_force)
-                    force_data.append(force_avg)
-                    current_time = time.time() - start_time
-                    time_data_force.append(current_time)
-                    # print(force_avg)
+                        # Read force
+                        t_s_force = time.time()
+                        raw_f_data = loadcell.read(2) # read 2 data points from buffer
+                        force_avg = average_list(raw_f_data)
+                        if (force_avg > MAX_LOADCELL_FORCE):
+                            raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
+                        t_f_force = time.time()
+                        t_d_force = t_f_force - t_s_force
+                        # print(t_d_force)
+                        force_data.append(force_avg)
+                        current_time = time.time() - start_time
+                        time_data_force.append(current_time)
+                        # print(force_avg)
 
-                    iter = iter + 1
-                step_counter = step_counter + 1
-                print("Step complete ", step_counter)
+                        iter = iter + 1
+                    step_counter = step_counter + 1
+                    print("Step complete ", step_counter+2*repeat)
 
         # Write data to CSV file
         filename = input("File name? !Caution will overwrite files without warning!\n (e.g sample number+CB %+electrode type+distance between electrodes+repetitions of test=\n=samp1_CB7-5_Epin_20mm_v2):")
