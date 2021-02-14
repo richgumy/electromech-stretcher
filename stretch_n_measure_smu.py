@@ -400,7 +400,7 @@ def main():
     ####################################
     step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
     # step_profile = [-4,0,-4,0,-4,0,-8,0,-8,0,-8,0,-12,0,-12,0,-12,0] # travel x1mm... for strains of 10%, 20% ...
-    velocity_profile = [200] # set travel speeds in mm/s
+    velocity_profile = [100] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
     ###
@@ -420,7 +420,7 @@ def main():
                 diff_avg = -100000
                 diff_buf = np.ones(400)*diff_avg
                 iter = 0
-                diff_min = 0.5
+                diff_min = 0.05
                 iter_max = 2000
                 iter_min = len(diff_buf)*1.5
                 while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
