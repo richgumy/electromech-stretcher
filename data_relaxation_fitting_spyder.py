@@ -60,8 +60,8 @@ def MAF(x,dx):
 def E1_E2_solver(x,y):
     """
     DESCR: Solves quadratic and determines realistic elastic moduli values for
-    SLM (solid linear model).
-    From equation:
+    SLM (solid linear model). 
+    From equation: 
        stress(t) =  x*e0 + C*np.exp(-(y/mu)*t)
     converting to ...
        stress(t) = (E1*E2)/(E1+E2) * e0 + C*np.exp(-((E1+E2)/mu)*t)
@@ -97,7 +97,7 @@ def find_Rsqr(f, x_data, y_data):
     """
     DESCR: Gives the Rsquared value for x/y data fitted to function 'f(x)=y'
     IN_PARAMS: f(x_data), x data, y data
-    NOTES:
+    NOTES: 
     TODO: Alter for use with non-linear function 'f'
     """
     SS_tot = 0
@@ -108,15 +108,15 @@ def find_Rsqr(f, x_data, y_data):
         SS_resid = SS_resid + (y_data[i] - f[i])**2
     R_sqr = 1 - SS_resid/SS_tot
     return R_sqr
-
-
+    
+    
 
 
 spec_length = 40e-3
 spec_width = 10e-3
 spec_thickness = 4e-3
 
-input_filename = "spec12-8speed0.3strain.csv"
+input_filename = "1_7-5_Epin_20mm_v4.csv"
 
 R = np.array([])
 tR = np.array([])
@@ -136,11 +136,12 @@ with open(input_filename, 'r', newline='') as csvfile:
             line_count = 1
         else:
             R = np.append(R,float(row[0]))
-            tR = np.append(tR,float(row[1]))
-            P = np.append(P,float(row[2]))
-            tP = np.append(tP,float(row[3]))
-            F = np.append(F,float(row[4]))
-            tF = np.append(tF,float(row[5]))
+            Ri = np.append(R,float(row[1]))
+            tR = np.append(tR,float(row[2]))
+            P = np.append(P,float(row[3]))
+            tP = np.append(tP,float(row[4]))
+            F = np.append(F,float(row[5]))
+            tF = np.append(tF,float(row[6]))
             # print(row[0],row[1],row[2],row[3],row[4],row[5])
 
 # Interpolate all data
@@ -234,18 +235,18 @@ strain_splits = split_ramp_data(Strain_tot)
 # take chunks of relaxing values from index i1 to i2
 i1 = []
 i2 = []
-for i in range(int(len(strain_splits)/4)):
+for i in range(int(len(strain_splits)/4)): 
     i1.append(int(4*i + 1))
     i2.append(int(4*i + 2))
-
+    
 
 # Curve fitting code (curve_fit func using non-lin lstsqr)
 e0 = .30
 def g(t,E1,E2,C,mu):
     return E1*e0 + C*np.exp(-(E2/mu)*t)
     # return (E1*E2)/(E1+E2) * e0 + C*np.exp(-((E1+E2)/mu)*t)
-
-def ln_g(t,E1,E2,C,mu):
+    
+def ln_g(t,E1,E2,C,mu): # Attempting to linearise the data to more easily find an Rsquare value
     return np.log((E1*E2)/(E1+E2)*e0*C) - ((E1+E2)/mu)*t
 
 def f(t, a, b, c, d):
@@ -267,12 +268,12 @@ for i in range(len(i1)):
     # Levenberg–Marquardt algorithm for non-linear leastsq
     poptS_fil, pcovS_fil = optimize.curve_fit(f, t_load_fil, Stress_load_fil, maxfev=50000)
     poptS, pcovS = optimize.curve_fit(g, t_load, Stress_load, p0=poptS_fil, maxfev=50000)
-    poptR, pcovR = optimize.curve_fit(f, t_load, Res_load)
-
+    poptR, pcovR = optimize.curve_fit(f, t_load, Res_load, maxfev=50000)
+    
     x = poptS[0]
     y = poptS[1]
     E1,E2 = E1_E2_solver(x,y)
-
+    
     # Find Rsqr value:
     R_sqr = find_Rsqr(g(t_load,E1,E2,poptS[2],poptS[3]), t_load, Stress_load)
 
@@ -296,7 +297,7 @@ for i in range(len(i1)):
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
     ax.grid(True)
-
+    
     ax = axs3[1]
     ax.plot(t_load,np.log(Stress_load),'bx',t_load_lin,ln_g(t_load_lin,E1,E2,poptS[2],poptS[3]),'y-')
     ax.set_title('')
@@ -310,7 +311,7 @@ for i in range(len(i1)):
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Stress [Pa]')
     ax.grid(True)
-
+ 
     ax = axs3[3]
     ax.plot(t_load,Res_load,'rx',t_load_lin,Res_load_lin,'y-')
     ax.set_title('')
@@ -320,3 +321,7 @@ for i in range(len(i1)):
 
 
 plt.show()
+
+
+
+
