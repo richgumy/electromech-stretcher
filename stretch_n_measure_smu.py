@@ -16,6 +16,7 @@ shutdown
 onboard measurement device buffers as much as possible)
 3) Change diff resistance from absolute to normal
 4) If program stops mid sequence complete auto_cal_zero function
+5) set range for measuring voltage to speed up measurement process
 """
 
 import csv

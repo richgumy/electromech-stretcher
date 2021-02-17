@@ -7,6 +7,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 
+def f(x, a0, a1, tau_1): # generalised Kelvin SLS relaxation model for n = 3
+    return a0 + a1 * np.exp(-x/tau_1)
+
+t = np.linspace(0,30000,1000)
+y = f(t,170,1320,17400)
+
+plt.plot(t,y)
+
+plt.show()
+
 #
 # step_profile = [1,2,3]
 # filename = "test this juan"
