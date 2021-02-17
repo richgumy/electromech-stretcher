@@ -222,7 +222,8 @@ def read_smu_res(smu_handle, num_wire=2):
     IN_PARAMS: Start time, timeout
     OUTPUT: Current resistance reading, average time since start time, time taken for reading
     NOTES:  Requires pyvisa,time and k2600 libraries
-    TODO: Add input params
+    TODO: 1) Add AC measurement functionality +ve and -ve pulses
+    2) Output timing for v and i measurements to determine if they are approx. 1PLC ea(+message send time)?
     """
     outer_res = 0
     inner_res = 0
@@ -330,8 +331,8 @@ def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
     buf_size = 40
     f_buf = [0]*buf_size
     speed = 180
-    Kp = 2 # control P gain constant
-    Ki = 0.2 # control I gain constant
+    Kp = 4 # control P gain constant
+    Ki = 0.5 # control I gain constant
     while abs(error) > tolerance:
         for i in range(buf_size):
             raw_data = loadcell_handle.read(2) # read 1 data point
@@ -400,7 +401,7 @@ def main():
     ####################################
     # step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
     step_profile = [-4,0]
-    repeats = 100
+    repeats = 80
     velocity_profile = [100] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
@@ -419,19 +420,20 @@ def main():
                     current_pos = 0 # init for while loop condition
                     # lag_start = 0 # to capture data from just after the strain has stopped
                     # lag = 0
-                    diff_avg = -100000
-                    diff_buf = np.ones(400)*diff_avg
-                    iter = 0
-                    diff_min = 0.1
-                    iter_max = 2000
-                    iter_min = len(diff_buf)*1.5
-                    while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers (100ohms/sec,2000iter*0.07s/iter=140s)
-                    # while ((float(current_pos) != float(step)) or (lag < relax_delay)):
-                    #     if (lag_start == 0) and (float(current_pos) >= float(step)):
-                    #         lag_start = time.time()
-                    #     if float(current_pos) >= float(step):
-                    #         lag = time.time() - lag_start
-
+                    # diff_avg = -100000
+                    # diff_buf = np.ones(400)*diff_avg
+                    # iter = 0
+                    # diff_min = 0.1
+                    # iter_max = 2000
+                    # iter_min = len(diff_buf)*1.5
+                    start_loop_time = time.time()
+                    loop_time = 0.0
+                    max_loop_time = 300.0 # in seconds
+                    print(loop_time<max_loop_time)
+                    # while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers 2 stop conditions -> (100ohms/sec,2000iter*0.07s/iter=140s)
+                    while (loop_time < max_loop_time): # assume all relaxations reach steady state by 'max_loop_time' -> total time = max_loop_time*repeats
+                        loop_time = time.time() - start_loop_time
+                        print(loop_time)
                         # Read position
                         current_pos = read_pos(s)
                         current_time = time.time() - start_time
@@ -447,17 +449,17 @@ def main():
                         avg_time_data_res.append(t_avg)
                         time_data_res.append(t_d)
                         # differentiate (outer electrode) resistance data to determine when relaxation has stopped
-                        if iter > 2:
-                            # print(res_data[-2])
-                            # print(current_res[0])
-                            # print(avg_time_data_res[-2])
-                            # print(t_avg)
-                            diff_res = (res_data_o[-2] - current_res[0])/(avg_time_data_res[-2] - t_avg)
-                            diff_buf = np.append(diff_buf,diff_res)
-                            diff_buf = np.delete(diff_buf,0)
-                            diff_avg = sum(diff_buf)/len(diff_buf)
-                            # print('dR',diff_res)
-                            print('dR/dt_avg:',diff_avg)
+                        # if iter > 2:
+                        #     # print(res_data[-2])
+                        #     # print(current_res[0])
+                        #     # print(avg_time_data_res[-2])
+                        #     # print(t_avg)
+                        #     diff_res = (res_data_o[-2] - current_res[0])/(avg_time_data_res[-2] - t_avg)
+                        #     diff_buf = np.append(diff_buf,diff_res)
+                        #     diff_buf = np.delete(diff_buf,0)
+                        #     diff_avg = sum(diff_buf)/len(diff_buf)
+                        #     # print('dR',diff_res)
+                        #     print('dR/dt_avg:',diff_avg)
                             # print('diff_buf',diff_buf)
                         # print(current_res)
 
@@ -475,7 +477,7 @@ def main():
                         time_data_force.append(current_time)
                         # print(force_avg)
 
-                        iter = iter + 1
+                        # iter = iter + 1
                     step_counter = step_counter + 1
                     print("Step complete ", step_counter+2*repeat)
 
