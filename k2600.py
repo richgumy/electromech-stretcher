@@ -131,6 +131,16 @@ class K2600:
         self.smua.source.output(self,0)
         self.smub.source.output(self,0)
         logger.info("Turned off both a and b channels.")
+        # Print any SMU errors
+        have_errors = round(float(self.connection.query("print(errorqueue.count)").rstrip()))
+        if have_errors > 0:
+            print("SMU Errors:")
+            for error in range(have_errors):
+                self.connection.write("code, message = errorqueue.next()")
+                print(self.connection.query("print(code,message)"))
+        else:
+            print("No smu errors")
+
         try:
             close_state = self.connection.close
             logger.info("Disconnected successfully from Keithley at %s.", self.visa_address)

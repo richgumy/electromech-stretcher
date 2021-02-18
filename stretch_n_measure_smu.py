@@ -217,15 +217,22 @@ def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
 
     return 0
 
-def read_smu_res(smu_handle, num_wire=2):
+def read_smu_res(smu_handle, num_wire=2, mode="NORMAL"):
     """
     DESCR: Gives a resistance reading
     IN_PARAMS: Start time, timeout
     OUTPUT: Current resistance reading, average time since start time, time taken for reading
     NOTES:  Requires pyvisa,time and k2600 libraries
-    TODO: 1) Add AC measurement functionality +ve and -ve pulses
+    TODO: 1) Add AC measurement mode functionality +ve and -ve pulses
     2) Output timing for v and i measurements to determine if they are approx. 1PLC ea(+message send time)?
     """
+    if mode == "AC": # alternates the direction of the current source each read
+        print("AC mode")
+        I_src = -1 * float(smu_handle.smua.source.leveli(smu_handle)) # toggle source current
+        print("I:",I_src)
+        smu_handle.smua.source.leveli(smu_handle,I_src) # set current source value
+        # print("Isrc toggled")
+
     outer_res = 0
     inner_res = 0
     t_s = time.time()
@@ -244,6 +251,7 @@ def read_smu_res(smu_handle, num_wire=2):
     t_d = t_f - t_s
     # print("td:",t_d)
     current_res = [outer_res, inner_res]
+
     return [current_res, t_d]
 
 ### Load cell data acquisition functions:
@@ -402,7 +410,7 @@ def main():
     ####################################
     # step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
     step_profile = [-4,0]
-    repeats = 80
+    repeats = 30
     velocity_profile = [100] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
@@ -421,12 +429,12 @@ def main():
                     current_pos = 0 # init for while loop condition
                     # lag_start = 0 # to capture data from just after the strain has stopped
                     # lag = 0
-                    # diff_avg = -100000
-                    # diff_buf = np.ones(400)*diff_avg
-                    # iter = 0
-                    # diff_min = 0.1
-                    # iter_max = 2000
-                    # iter_min = len(diff_buf)*1.5
+                    diff_avg = -100000
+                    diff_buf = np.ones(400)*diff_avg
+                    iter = 0
+                    diff_min = 0
+                    iter_max = 0
+                    iter_min = len(diff_buf)*1.5
                     start_loop_time = time.time()
                     loop_time = 0.0
                     max_loop_time = 300.0 # in seconds
@@ -434,7 +442,7 @@ def main():
                     # while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers 2 stop conditions -> (100ohms/sec,2000iter*0.07s/iter=140s)
                     while (loop_time < max_loop_time): # assume all relaxations reach steady state by 'max_loop_time' -> total time = max_loop_time*repeats
                         loop_time = time.time() - start_loop_time
-                        print(loop_time)
+                        print("loop_time-",loop_time)
                         # Read position
                         current_pos = read_pos(s)
                         current_time = time.time() - start_time
@@ -442,7 +450,7 @@ def main():
                         time_data_pos.append(current_time)
 
                         # Read resistance
-                        current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
+                        current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires,mode="AC")
                         r_stop_time = time.time() - start_time
                         t_avg = r_stop_time - t_d/2
                         res_data_o.append(current_res[0])
@@ -462,7 +470,7 @@ def main():
                         #     # print('dR',diff_res)
                         #     print('dR/dt_avg:',diff_avg)
                             # print('diff_buf',diff_buf)
-                        # print(current_res)
+                        print("current_res-",current_res)
 
                         # Read force
                         t_s_force = time.time()
@@ -480,7 +488,7 @@ def main():
 
                         # iter = iter + 1
                     step_counter = step_counter + 1
-                    print("Step complete ", step_counter+2*repeat)
+                    print("Step complete ", step_counter)
 
         # Write data to CSV file
         filename = input("File name? !Caution will overwrite files without warning!\n (e.g sample number+CB %+electrode type+distance between electrodes+repetitions of test=\n=samp1_CB7-5_Epin_20mm_v2):")
