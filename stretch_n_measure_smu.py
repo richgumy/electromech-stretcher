@@ -10,13 +10,13 @@ Parameters measured:
 -> Resistance, Strain, Force, and Time (for each individual measurement)
 
 TODO:
-1) use 'try' and 'finally' statements for ctrl+c KeyboardInterrupt safer program
-shutdown
+1) Change scheduling system so that force data can be recorded at a much faster rate (10kHz+)
+    a) Then we can use this rapid sample data to see any vibration reasonsance
+    b) Parallel threads could be handy?
 2) Minimise all instructions while data being recorded (use post-processing and
 onboard measurement device buffers as much as possible)
-3) Change diff resistance from absolute to normal
-4) If program stops mid sequence complete auto_cal_zero function
-5) set range for measuring voltage to speed up measurement process
+3) set range for measuring voltage to speed up measurement process (stop autoranging)
+
 """
 
 import csv
@@ -507,22 +507,27 @@ def main():
         log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
         log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
         log_file.write('iter_min='+str(iter_min)+'\n')
+        log_file.write('max_loop_time='+str(max_loop_time)+'\n')
+        log_file.write('repeats='+str(repeats)+'\n')
         log_file.write(' \n')
         log_file.close()
 
         # Plot all data
         plot_q = input("Plot all data?")
         if (plot_q == 'y'):
-            fig, (ax1, ax2, ax3) = plt.subplots(3)
+            fig, (ax1, ax2, ax3, ax4) = plt.subplots(4)
 
             ax1.plot(avg_time_data_res, res_data_o)
-            ax1.set(ylabel='Resistance[Ohm]')
+            ax1.set(ylabel='Resistance_outer[Ohm]')
 
-            ax2.plot(time_data_pos, pos_data)
-            ax2.set(ylabel='Position[mm]')
+            ax2.plot(avg_time_data_res, res_data_i)
+            ax2.set(ylabel='Resistance_inner[Ohm]')
 
-            ax3.plot(time_data_force, force_data)
-            ax3.set(xlabel='Time[s]', ylabel='Force[N]')
+            ax3.plot(time_data_pos, pos_data)
+            ax3.set(ylabel='Position[mm]')
+
+            ax4.plot(time_data_force, force_data)
+            ax4.set(xlabel='Time[s]', ylabel='Force[N]')
 
             plt.show()
             fig.savefig(filename)
