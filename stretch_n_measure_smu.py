@@ -410,7 +410,7 @@ def main():
     ### Set velocity profile params: ###
     ####################################
     # step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
-    step_profile = [-4,0]
+    step_profile = [0]
     repeats = 30
     velocity_profile = [100] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
@@ -451,7 +451,7 @@ def main():
                         time_data_pos.append(current_time)
 
                         # Read resistance
-                        current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires,mode="AC")
+                        current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
                         r_stop_time = time.time() - start_time
                         t_avg = r_stop_time - t_d/2
                         res_data_o.append(current_res[0])
