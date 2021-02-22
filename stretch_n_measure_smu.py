@@ -381,7 +381,7 @@ def main():
     # ohmmeter = K2600(available_devs[int(device_index)])
     ohmmeter = K2600(available_devs[3])
     meas_wires = 4 # is it a 2 or 4 wire resistance measurement?
-    I_src = 10e-6 # constant current source value
+    I_src = 100e-6 # constant current source value
     V_max = 20 # max current source value
     init_smu_ohmmeter_params(ohmmeter,I_src,V_max,num_wire=meas_wires)
 
@@ -410,7 +410,7 @@ def main():
     ####################################
     # step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
     step_profile = [0]
-    repeats = 30
+    repeats = 40
     velocity_profile = [100] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
