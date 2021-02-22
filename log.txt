@@ -283,3 +283,29 @@ diff_min(convergence checker)=0
 iter_max(convergence timeout)=0
 iter_min=600.0
  
+2021-02-19
+13:14:20.446418
+filename=2_7-5_Epin_20mm_v4
+step profile=[0]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=1e-05, Vmax=20
+diff_min(convergence checker)=0
+iter_max(convergence timeout)=0
+iter_min=600.0
+max_loop_time=300.0
+repeats=30
+ 
+2021-02-19
+17:47:17.494531
+filename=2_7-5_Epin_20mm_v5
+step profile=[0]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=1e-05, Vmax=20
+diff_min(convergence checker)=0
+iter_max(convergence timeout)=0
+iter_min=600.0
+max_loop_time=300.0
+repeats=30
+ 
