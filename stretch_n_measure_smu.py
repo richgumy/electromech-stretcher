@@ -217,7 +217,7 @@ def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
 
     return 0
 
-def read_smu_res(smu_handle, num_wire=2, mode="NORMAL"):
+def read_smu_res(smu_handle, num_wire=2, mode="DC"):
     """
     DESCR: Gives a resistance reading
     IN_PARAMS: Start time, timeout
@@ -227,9 +227,9 @@ def read_smu_res(smu_handle, num_wire=2, mode="NORMAL"):
     2) Output timing for v and i measurements to determine if they are approx. 1PLC ea(+message send time)?
     """
     if mode == "AC": # alternates the direction of the current source each read
-        print("AC mode")
+        # print("AC mode")
         I_src = -1 * float(smu_handle.smua.source.leveli(smu_handle)) # toggle source current
-        print("I:",I_src)
+        # print("I:",I_src)
         smu_handle.smua.source.leveli(smu_handle,I_src) # set current source value
         # print("Isrc toggled")
 
@@ -383,6 +383,7 @@ def main():
     meas_wires = 4 # is it a 2 or 4 wire resistance measurement?
     I_src = 100e-6 # constant current source value
     V_max = 20 # max current source value
+    meas_mode = "DC"
     init_smu_ohmmeter_params(ohmmeter,I_src,V_max,num_wire=meas_wires)
 
     ## Setup loadcell connection
@@ -450,7 +451,7 @@ def main():
                         time_data_pos.append(current_time)
 
                         # Read resistance
-                        current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires)
+                        current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires,mode=meas_mode)
                         r_stop_time = time.time() - start_time
                         t_avg = r_stop_time - t_d/2
                         res_data_o.append(current_res[0])
@@ -503,7 +504,7 @@ def main():
         log_file.write('filename='+filename+'\n')
         log_file.write('step profile='+str(step_profile)+'\n')
         log_file.write('velocity profile='+str(velocity_profile)+'\n')
-        log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+'\n')
+        log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+', Type='+str(meas_mode)+'\n')
         log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
         log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
         log_file.write('iter_min='+str(iter_min)+'\n')
