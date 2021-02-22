@@ -16,6 +16,7 @@ TODO:
 2) Minimise all instructions while data being recorded (use post-processing and
 onboard measurement device buffers as much as possible)
 3) set range for measuring voltage to speed up measurement process (stop autoranging)
+4) Change AC measurment to calculate an average resistance based
 
 """
 
