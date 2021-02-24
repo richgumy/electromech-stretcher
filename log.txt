@@ -323,4 +323,15 @@ max_loop_time=10.0
 repeats=1
 
 >>next test has 4pin electrodes
- 
+2021-02-24
+21:30:00
+filename=2_7-5_Epin_20mm_v5
+step profile=[0, -4]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=0.0001, Vmax=20, Type=AC
+diff_min(convergence checker)=0
+iter_max(convergence timeout)=0
+iter_min=600.0
+max_loop_time=300.00
+repeats=30

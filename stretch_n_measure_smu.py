@@ -388,7 +388,7 @@ def main():
     # ohmmeter = K2600(available_devs[int(device_index)])
     ohmmeter = K2600(available_devs[3])
     meas_wires = 4 # is it a 2 or 4 wire resistance measurement?
-    I_src = 100e-6 # constant current source value
+    I_src = 10e-6 # constant current source value
     V_max = 20 # max current source value
     meas_mode = "AC"
     init_smu_ohmmeter_params(ohmmeter,I_src,V_max,num_wire=meas_wires)
@@ -498,6 +498,22 @@ def main():
                     step_counter = step_counter + 1
                     print("Step complete ", step_counter)
 
+        log_file = open("log.txt","a")
+        log_file.write(str(datetime.date(datetime.now()))+'\n')
+        log_file.write(str(datetime.time(datetime.now()))+'\n')
+        log_file.write("ERROR occurred mid sequence!"+'\n')
+        log_file.write('filename='+filename+'\n')
+        log_file.write('step profile='+str(step_profile)+'\n')
+        log_file.write('velocity profile='+str(velocity_profile)+'\n')
+        log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+', Type='+str(meas_mode)+'\n')
+        log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
+        log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
+        log_file.write('iter_min='+str(iter_min)+'\n')
+        log_file.write('max_loop_time='+str(max_loop_time)+'\n')
+        log_file.write('repeats='+str(repeats)+'\n')
+        log_file.write(' \n')
+        log_file.close()
+
         # Write data to CSV file
         write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
             force_data, time_data_force)
@@ -522,7 +538,7 @@ def main():
 
             plt.show()
             fig.savefig(filename)
-    
+
     except: # if test sequence stops abruptly log it and save data so far.
         log_file = open("log.txt","a")
         log_file.write(str(datetime.date(datetime.now()))+'\n')
