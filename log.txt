@@ -310,3 +310,18 @@ iter_min=600.0
 max_loop_time=300.0
 repeats=30
  
+2021-02-24
+12:01:49.012093
+filename=test_4pin_v0
+step profile=[0, -4]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=0.0001, Vmax=20, Type=AC
+diff_min(convergence checker)=0
+iter_max(convergence timeout)=0
+iter_min=600.0
+max_loop_time=10.0
+repeats=1
+
+>>next test has 4pin electrodes
+ 
