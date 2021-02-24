@@ -149,10 +149,13 @@ def read_pos(serial_handle):
     raw_status = readline_g(serial_handle)
     current_position = raw_status.strip('<>\n\r').split(',')[-1] #string manipulation
     if re.search('[a-zA-Z]', current_position):
-        current_position = 0
+        current_position = 0.0
     else:
-        # print("Position data handler:",current_position)
-        current_position = float(current_position)
+        try:
+            current_position = float(current_position)
+        except ValueError:
+            print("could not convert string('%s') to float -> current_pos set to zero" % current_position)
+            current_pos = 0.0
     serial_handle.flushInput()
     return current_position
 
@@ -374,6 +377,9 @@ def main():
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 
+    # set csv file name for data capture
+    filename = input("File name? !Caution will overwrite files without warning!\n (e.g sample number+CB %+electrode type+distance between electrodes+repetitions of test=\n=samp1_CB7-5_Epin_20mm_v2):")
+
     ## Setup SMU connection
     rm = pyvisa.ResourceManager()
     available_devs = rm.list_resources()
@@ -384,7 +390,7 @@ def main():
     meas_wires = 4 # is it a 2 or 4 wire resistance measurement?
     I_src = 100e-6 # constant current source value
     V_max = 20 # max current source value
-    meas_mode = "DC"
+    meas_mode = "AC"
     init_smu_ohmmeter_params(ohmmeter,I_src,V_max,num_wire=meas_wires)
 
     ## Setup loadcell connection
@@ -411,8 +417,8 @@ def main():
     ### Set velocity profile params: ###
     ####################################
     # step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
-    step_profile = [0]
-    repeats = 40
+    step_profile = [0,-4]
+    repeats = 30
     velocity_profile = [100] # set travel speeds in mm/s
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
 
@@ -493,26 +499,9 @@ def main():
                     print("Step complete ", step_counter)
 
         # Write data to CSV file
-        filename = input("File name? !Caution will overwrite files without warning!\n (e.g sample number+CB %+electrode type+distance between electrodes+repetitions of test=\n=samp1_CB7-5_Epin_20mm_v2):")
         write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
             force_data, time_data_force)
 
-        # Open function to open the file "log.txt"
-        # (same directory) in append mode and
-        log_file = open("log.txt","a")
-        log_file.write(str(datetime.date(datetime.now()))+'\n')
-        log_file.write(str(datetime.time(datetime.now()))+'\n')
-        log_file.write('filename='+filename+'\n')
-        log_file.write('step profile='+str(step_profile)+'\n')
-        log_file.write('velocity profile='+str(velocity_profile)+'\n')
-        log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+', Type='+str(meas_mode)+'\n')
-        log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
-        log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
-        log_file.write('iter_min='+str(iter_min)+'\n')
-        log_file.write('max_loop_time='+str(max_loop_time)+'\n')
-        log_file.write('repeats='+str(repeats)+'\n')
-        log_file.write(' \n')
-        log_file.close()
 
         # Plot all data
         plot_q = input("Plot all data?")
@@ -533,8 +522,29 @@ def main():
 
             plt.show()
             fig.savefig(filename)
+    
+    except: # if test sequence stops abruptly log it and save data so far.
+        log_file = open("log.txt","a")
+        log_file.write(str(datetime.date(datetime.now()))+'\n')
+        log_file.write(str(datetime.time(datetime.now()))+'\n')
+        log_file.write("ERROR occurred mid sequence!"+'\n')
+        log_file.write('filename='+filename+'\n')
+        log_file.write('step profile='+str(step_profile)+'\n')
+        log_file.write('velocity profile='+str(velocity_profile)+'\n')
+        log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+', Type='+str(meas_mode)+'\n')
+        log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
+        log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
+        log_file.write('iter_min='+str(iter_min)+'\n')
+        log_file.write('max_loop_time='+str(max_loop_time)+'\n')
+        log_file.write('repeats='+str(repeats)+'\n')
+        log_file.write(' \n')
+        log_file.close()
 
-    finally: # if test sequence stops abruptly...
+        write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
+            force_data, time_data_force)
+
+
+    finally: # regardless of program success complete the following
         # zero the specimen
         auto_zero_cal(loadcell, s, 0.005)
         print("Disconnecting serial and pyvisa connections...")
