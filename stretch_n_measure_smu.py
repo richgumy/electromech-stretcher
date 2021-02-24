@@ -218,6 +218,15 @@ def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
 
     return 0
 
+def init_smu_AC_pulse():
+    I_src = float(smu_handle.smua.source.leveli(smu_handle)) # toggle source current
+    # setup buffers
+    # smuX.trigger.source.limitV = sweepSourceLimitVval
+    # setup list of triggers-> smua.trigger.source.listv({-I_src, I_src})
+    # enable trigger -> smua.trigger.source.action = smua.ENABLE
+
+    # seperate function to -> smuX.trigger.measure.i(rbuffer)
+
 def read_smu_res(smu_handle, num_wire=2, mode="NORMAL"):
     """
     DESCR: Gives a resistance reading
