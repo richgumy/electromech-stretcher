@@ -7,12 +7,63 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 
-current_position = "darts"
 
-try:
-    current_position = float(current_position)
-except ValueError:
-    print("could not convert string('%s') to float" % current_position)
+# Adding a Y-Axis Label to the Secondary Y-Axis in Matplotlib
+
+# creating data for plot
+# data arrangement between 0 and 50
+# with the difference of 2
+# x-axis
+x = np.arange(0, 50, 2)
+
+# y-axis values
+y1 = x**2
+
+# secondary y-axis values
+y2 = x**3
+
+# plotting figures by creating aexs object
+# using subplots() function
+fig, ax = plt.subplots(figsize = (10, 5))
+# plt.title('Example of Two Y labels')
+
+# using the twinx() for creating another
+# axes object for secondry y-Axis
+ax2 = ax.twinx()
+ax.plot(x, y1, color = 'g')
+ax2.plot(x, y2, color = 'b')
+
+# giving labels to the axises
+ax.set_xlabel('x-axis', color = 'r')
+ax.set_ylabel('y1-axis', color = 'g')
+
+# secondary y-axis label
+ax2.set_ylabel('Secondary y-axis', color = 'b')
+
+# defining display layout
+plt.tight_layout()
+
+# show plot
+plt.show()
+
+# def MAF(x,N):
+#     """
+#     DESCR: Moving average filter for a set of data averaging +/- N/2 each point
+#     IN_PARAMS: x data, sample period to average over
+#     NOTES: Requires numpy library. Use an odd numbered N size window.
+#     TODO:
+#     """
+#     x_padded = np.pad(x, (N//2, N-1-N//2), mode='edge')
+#     x_smooth = np.convolve(x_padded, np.ones((N,))/N, mode='valid')
+#
+#     return x_smooth
+#
+# data = [1,2,3,4,5,6,7,8]
+#
+# new_data = MAF(data,3)
+#
+# print(data)
+# print(new_data)
 
 # def f(x, a0, a1, tau_1): # generalised Kelvin SLS relaxation model for n = 3
 #     return a0 + a1 * np.exp(-x/tau_1)

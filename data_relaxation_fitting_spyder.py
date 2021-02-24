@@ -1,5 +1,5 @@
 """
-FILE: data_relaxation_fitting.py
+FILE: data_relaxation_fitting_spyder.py
 AUTHOR: R Ellingham
 DATE: Dec 2020
 PROGRAM DESC: Fit a relaxation model to stress relaxation data.
@@ -40,22 +40,17 @@ def split_ramp_data(data):
     index_splits.append(n-1)
     return index_splits
 
-def MAF(x,dx):
+def MAF(x,N):
     """
-    DESCR: Moving average filter for a set of data averaging +/- each point (Bar
-    the first and last 'dx' samples)
+    DESCR: Moving average filter for a set of data averaging +/- N/2 each point
     IN_PARAMS: x data, sample period to average over
-    NOTES:
+    NOTES: Requires numpy library. Use an odd numbered N size window.
     TODO:
     """
-    xn = []
-    x_sum = 0
-    for i in range(dx,len(x)-dx):
-        x_sum = x[i]
-        for j in range(1,dx+1):
-            x_sum = x_sum + x[i-j] + x[i+j]
-        xn.append(x_sum/(2*dx+1))
-    return xn
+    x_padded = np.pad(x, (N//2, N-1-N//2), mode='edge')
+    x_smooth = np.convolve(x_padded, np.ones((N,))/N, mode='valid')
+
+    return x_smooth
 
 def E1_E2_solver(x,y):
     """
@@ -116,7 +111,7 @@ spec_length = 40e-3
 spec_width = 10e-3
 spec_thickness = 4e-3
 
-input_filename = "1_7-5_Epin_20mm_v1.csv"
+input_filename = "2_7-5_Epin_20mm_v3.csv"
 
 R = np.array([])
 Ri = np.array([])
@@ -278,60 +273,60 @@ pGen_init = [1,1,1]
 try:
     for i in range(int(len(strain_splits)/4)):
         Res_load = Ri_t[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
-    
+
         Strain_load = Strain_t[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
-    
+
         Stress_load = Stress_t[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
         Stress_load_min = np.min(Stress_load)
         Stress_load = Stress_load - Stress_load_min
-    
+
         t_load = t_lin[int(strain_splits[i1[i]]):int(strain_splits[i2[i]])]
         t_load = t_load - t_load[0]
-    
-    
+
+
         # Levenberg–Marquardt algorithm for non-linear leastsq, fitting the stress data to SLS relaxation models
         poptS, pcovS = optimize.curve_fit(SLS_relax, t_load, Stress_load, maxfev=50000)
         print("SLS_relax(t,E1,E2,C,mu):",poptS)
         poptS_simple, pcovS_simple = optimize.curve_fit(SLS_relax_simple, t_load, Stress_load, maxfev=50000)
         poptS_gen, pcovS_gen = optimize.curve_fit(generalisedi2, t_load, Stress_load, p0=pGen_init, maxfev=50000)
         print("generalisedi2(x, a0, a1, tau_1):",poptS_gen)
-        
+
         pGen_init = poptS_gen
-       
+
         t_load_lin = np.linspace(min(t_load),max(t_load) , 100)
         Stress_load_lin = SLS_relax(t_load_lin,*poptS)
         Stress_load_lin_simple = SLS_relax_simple(t_load_lin,*poptS_simple)
         Stress_load_lin_f = generalisedi2(t_load_lin,*poptS_gen)
-    
+
         fig, axs = plt.subplots(1, 1, constrained_layout=True)
-    
+
         ax = axs
         ax.plot(t_load,Stress_load+Stress_load_min,'bx', t_load_lin,
                 Stress_load_lin_f+Stress_load_min, 'r-', t_load_lin,
-                Stress_load_lin+Stress_load_min, 'y-', t_load_lin, 
+                Stress_load_lin+Stress_load_min, 'y-', t_load_lin,
                 Stress_load_lin_simple+Stress_load_min,'m-')
         ax.set_title('')
         ax.set_xlabel('Time [s]')
         ax.set_ylabel('Stress [Pa]')
         ax.legend(["Data", "Generalised SLM i=3", "SLS fit"])
         ax.grid(True)
-    
-    
+
+
         # ax = axs3[1]
         # ax.plot(t_load,Stress_load,'rx',t_load_lin,Stress_load_lin_simple,'y-')
         # ax.set_title('')
         # ax.set_xlabel('Time[s]')
         # ax.set_ylabel('Resistance [Ohm]')
         # ax.grid(True)
-        
-        poptS[2] = poptS[0] + Stress_load_min  
-        poptS_gen[2] = poptS_gen[0] + Stress_load_min  
+
+        poptS[2] = poptS[0] + Stress_load_min
+        poptS_gen[2] = poptS_gen[0] + Stress_load_min
         consts_SLSrelax.append(poptS)
         consts_geni2.append(poptS_gen)
 
 finally:
     print(consts_geni2)
-    
+
     for j in (range(len(consts_geni2[0]))):
         const = []
         for i in (range(len(consts_geni2))):
@@ -340,15 +335,5 @@ finally:
         ax = axs
         ax.plot(const,'bx')
         ax.grid(True)
-    
+
     plt.show()
-
-
-
-
-
-
-
-
-
-
