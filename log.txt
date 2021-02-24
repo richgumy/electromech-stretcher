@@ -321,4 +321,6 @@ iter_max(convergence timeout)=0
 iter_min=600.0
 max_loop_time=10.0
 repeats=1
+
+>>next test has 4pin electrodes
  
