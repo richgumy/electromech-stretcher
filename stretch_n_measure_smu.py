@@ -180,7 +180,8 @@ def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
     """
     DESCR: Initialise parameters for the use of the smu as a 2 or 4 wire ohmmeter.
     Using smua as the outer connection (or 2 wire). 2 wire is default.
-    IN_PARAMS: Current source current value, current source max voltage
+    IN_PARAMS: smu_handle, Current source current value, current source max
+    voltage, number of wire measurement, number of power line cycles per measurment
     OUTPUT: N/A
     NOTES:  Requires pyvisa and k2600 library
     TODO: create a 2wire version
@@ -221,14 +222,22 @@ def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
 
     return 0
 
-def init_smu_AC_pulse():
-    I_src = float(smu_handle.smua.source.leveli(smu_handle)) # toggle source current
-    # setup buffers
-    # smuX.trigger.source.limitV = sweepSourceLimitVval
-    # setup list of triggers-> smua.trigger.source.listv({-I_src, I_src})
-    # enable trigger -> smua.trigger.source.action = smua.ENABLE
-
-    # seperate function to -> smuX.trigger.measure.i(rbuffer)
+def init_smu_AC_pulse(smu_handle):
+    """
+    DESCR: Initialises parameters for an AC pulse train of +/- Isrc
+    IN_PARAMS: smu_handle
+    OUTPUT: Current resistance reading, average time since start time, time taken for reading
+    NOTES:  Requires pyvisa,time and k2600 libraries
+    TODO: 1) Add AC measurement mode functionality +ve and -ve pulses
+    2) Output timing for v and i measurements to determine if they are approx. 1PLC ea(+message send time)?
+    """
+    I_src = float(smu_handle.smua.source.leveli(smu_handle)) # get source current value for pulse train
+    smu_handle.smua.makebuffer(smu_handle,buf_size,"Vbuffer") # MAKE FUNCTION FOR THIS IN K2600
+    smu_handle.smua.trigger.source.limitV(smu_handle,sweepSourceLimitVval)
+    smua.trigger.source.listv({-I_src, I_src}) # MAKE FUNCTION FOR THIS IN K2600
+    smua.trigger.count = INFINITE # MAKE FUNCTION FOR THIS IN K2600
+    smuX.trigger.source.action = smuX.ENABLE# MAKE FUNCTION FOR THIS IN K2600
+    #smuX.trigger.arm.set() # MAKE FUNCTION FOR THIS IN K2600 The SMU automatically clears all the event detectors when the smuX.trigger.initiate() function is executed. This function should be called after the sweep is initiated.
 
 def read_smu_res(smu_handle, num_wire=2, mode="NORMAL"):
     """
