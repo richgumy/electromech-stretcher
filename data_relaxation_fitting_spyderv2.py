@@ -111,7 +111,7 @@ spec_length = 40e-3
 spec_width = 10e-3
 spec_thickness = 4e-3
 
-input_filename = "2_7-5_Epin_20mm_v3.csv"
+input_filename = "2_7-5_Epin_20mm_v4.csv"
 
 # Extract from csv
 if (input_filename[-4:] != '.csv'): input_filename = input_filename + '.csv' # Assume file is .csv if not explicitly stated in main parameter input
