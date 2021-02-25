@@ -510,7 +510,6 @@ def main():
         log_file = open("log.txt","a")
         log_file.write(str(datetime.date(datetime.now()))+'\n')
         log_file.write(str(datetime.time(datetime.now()))+'\n')
-        log_file.write("ERROR occurred mid sequence!"+'\n')
         log_file.write('filename='+filename+'\n')
         log_file.write('step profile='+str(step_profile)+'\n')
         log_file.write('velocity profile='+str(velocity_profile)+'\n')

@@ -326,7 +326,7 @@ repeats=1
 >>next test has 4pin electrodes
 2021-02-24
 21:30:00
-filename=2_7-5_Epin_20mm_v5
+filename=2_7-5_E4pin_20mm_v6
 step profile=[0, -4]
 velocity profile=[100]
 MEASUREMENT:
@@ -336,3 +336,18 @@ iter_max(convergence timeout)=0
 iter_min=600.0
 max_loop_time=300.00
 repeats=30
+
+>>next test has 4pin electrodes
+2021-02-25
+15:11:19.415218
+filename=2_7-5_E4pin_20mm_v7
+step profile=[0, -4]
+velocity profile=[100]
+MEASUREMENT:
+ num wires=4, Isrc=1e-05, Vmax=20, Type=AC
+diff_min(convergence checker)=0
+iter_max(convergence timeout)=0
+iter_min=600.0
+max_loop_time=300.0
+repeats=30
+ 
