@@ -2,12 +2,12 @@
 FILE: stretch_n_measure_smu.py
 AUTHOR: R Ellingham
 DATE CREATED: Oct 2020
-DATE MODIFIED: Feb 2021
+DATE MODIFIED: Apr 2021
 PROGRAM DESC: Gather data from a stretched conductive elastomer in real time
 using serial communication. Writing the data to a CSV file ready for analysis.
 
 Parameters measured:
--> Resistance, Strain, Force, and Time (for each individual measurement)
+-> Resistance, Strain, Force, and their respective time stamps (for each individual measurement)
 
 TODO:
 1) Change scheduling system so that force data can be recorded at a much faster rate (10kHz+)
@@ -120,6 +120,33 @@ def init_motion_params(serial_handle, max_accel="50", units="mm", steps_p_mm="25
     else:
         print("invalid distance mode")
     return 0
+
+def sinusoid_maker(amplitude_strain, freq, offset_strain):
+    """
+    DESCR: Make velocity and distance arrays to apply a time quantised cosinusoidal strain waveform
+    IN_PARAMS: amplitude_strain of sinusoid in mm, frequency in Hz, offset_strain in mm (default = amplitude_strain/2)
+    OUTPUT: sample time array, amplitude of strain step array in mm, velocity array in mm/s
+    NOTES:    Requires serial library and Grbl
+              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
+              Cannot produce compresive strain only tensile
+    """
+    if (offset_strain - amplitude_strain) < 0:
+        offset_strain = amplitude_strain # DON'T ALLOW COMPRESSIVE STRAIN
+    delta_t = 0.05 # hard code the quantisation time
+    T = 1 / freq # period
+    n = int(T / delta_t) # samples per wavelength
+    t = np.linspace(0,T,n+1) # wavelength time array
+    x_prev = 0 # previous x used for differentiation
+    x = np.zeros(n+1) # output step array
+    dx_dt = np.zeros(n+1) # output velocity array
+    for i in range(n+1):
+        x[i] = amplitude_strain*np.cos(2*np.pi*freq*t[i]+np.pi) + offset_strain
+        dx_dt[i] = (x[i] - x_prev)/(delta_t)
+        if i == 1:
+            dx_dt[i-1] = dx_dt[i]
+        x_prev = x[i]
+    return t, x, dx_dt
+
 
 def linear_travel(serial_handle, lin_speed="60", displacement="1"):
     """
@@ -434,22 +461,50 @@ def main():
     ####################################
     ### Set velocity profile params: ###
     ####################################
-    # step_profile = [-4,0,-4,0,-4,0,-4,0,0,-8,0,-8,0,-8,0,-8,0,0,-12,0,-12,0,-12,0,-12,0,0]
-    step_profile = [0,-4]
-    repeats = 30
-    velocity_profile = [100] # set travel speeds in mm/s
+    # step_profile = [0,-8,-8,0,0,-8,-8,0,0,-8,-8,0,0,-8,-8,0]
+    # step_profile = [0,0,0,-4,-4,-8,-8,-12,-12,-8,-8,-4,-4,0,0,-4,-4,0,0,-8,-8,0,
+    # 0,-12,-12,0,0,-8,-8,0,0,-4,-4]
+    # step_profile = [-12,0] # currently 0%CB
+    # repeats = 1
+    # repeats = 2
+    # repeats = 40
+    # velocity_profile = [40,80,120,160]
+    # velocity_profile = [40]
+    # velocity_profile = [40,80,120]
+
+    ## For a sinusoidal strain waveform input
+    ## Assuming starting at 0% strain
+    amp_strain = 6 # 1/2 the peak to peak value
+    offset_strain = 0 # offset of 0 will default be changed to offset_strain=amp_strain
+    freq_strain = 0.2 # freq in Hz
+    #
+    t_sine, step_profile, velocity_profile = sinusoid_maker(amp_strain, freq_strain, offset_strain)
+    step_profile = -step_profile
+    velocity_profile = abs(velocity_profile)*60
+    repeats = 4
+
+    plt.plot(t_sine,step_profile,'x')
+    plt.plot(t_sine,velocity_profile,'x')
+    plt.show()
+
     # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
+    ####################################
+    ### End velocity profile params: ###
+    ####################################
 
     ###
     # Begin measurement loop
     ###
+    start_time = time.time() # ref time reset for automated test
     try:
         print("Reading data...")
         step_counter = 0
-        start_time = time.time() # ref time reset for automated test
         for repeat in range(repeats):
-            for velocity in velocity_profile:
-                for step in step_profile:
+            # for velocity in velocity_profile:
+            #     for step in step_profile:
+            for step_indx in range(len(step_profile)):
+                    step = step_profile[step_indx]
+                    velocity = velocity_profile[step_indx]
                     linear_travel(s, velocity, step)
                     print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
                     current_pos = 0 # init for while loop condition
@@ -463,10 +518,12 @@ def main():
                     iter_min = len(diff_buf)*1.5
                     start_loop_time = time.time()
                     loop_time = 0.0
-                    max_loop_time = 300.0 # in seconds
-                    print(loop_time<max_loop_time)
+                    max_loop_time = 0.0 # in seconds
+                    pos_err_tol = 0.01
+                    pos_err = 10 # init pos_err as an appropriately high value
                     # while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers 2 stop conditions -> (100ohms/sec,2000iter*0.07s/iter=140s)
-                    while (loop_time < max_loop_time): # assume all relaxations reach steady state by 'max_loop_time' -> total time = max_loop_time*repeats
+                    # while (loop_time < max_loop_time): # assume all relaxations reach steady state by 'max_loop_time' -> total time = max_loop_time*repeats
+                    while ((pos_err > pos_err_tol) or (loop_time < max_loop_time)):
                         loop_time = time.time() - start_loop_time
                         print("loop_time-",loop_time)
                         # Read position
@@ -496,7 +553,8 @@ def main():
                         #     # print('dR',diff_res)
                         #     print('dR/dt_avg:',diff_avg)
                             # print('diff_buf',diff_buf)
-                        print("current_res-",current_res)
+                        print("current_res:",current_res)
+                        print("current pos:",current_pos,"  set pos:",step," pos err:",pos_err," velocity:",velocity)
 
                         # Read force
                         t_s_force = time.time()
@@ -513,6 +571,7 @@ def main():
                         # print(force_avg)
 
                         # iter = iter + 1
+                        pos_err = abs(current_pos - step)
                     step_counter = step_counter + 1
                     print("Step complete ", step_counter)
 
@@ -547,7 +606,7 @@ def main():
             ax2.plot(avg_time_data_res, res_data_i)
             ax2.set(ylabel='Resistance_inner[Ohm]')
 
-            ax3.plot(time_data_pos, pos_data)
+            ax3.plot(time_data_pos, float(pos_data))
             ax3.set(ylabel='Position[mm]')
 
             ax4.plot(time_data_force, force_data)
@@ -556,11 +615,13 @@ def main():
             plt.show()
             fig.savefig(filename)
 
-    except: # if test sequence stops abruptly log it and save data so far.
+    except Exception as inst: # if test sequence stops abruptly log it and save data so far.
+        print(inst)
+        print("Error inst params^^")
         log_file = open("log.txt","a")
         log_file.write(str(datetime.date(datetime.now()))+'\n')
         log_file.write(str(datetime.time(datetime.now()))+'\n')
-        log_file.write("ERROR occurred mid sequence!"+'\n')
+        log_file.write("ERROR occurred mid sequence! @ time ="+str(time.time() - start_time)+'\n')
         log_file.write('filename='+filename+'\n')
         log_file.write('step profile='+str(step_profile)+'\n')
         log_file.write('velocity profile='+str(velocity_profile)+'\n')
@@ -573,11 +634,9 @@ def main():
         log_file.write(' \n')
         log_file.close()
 
+    finally: # regardless of program success complete the following
         write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
             force_data, time_data_force)
-
-
-    finally: # regardless of program success complete the following
         # zero the specimen
         auto_zero_cal(loadcell, s, 0.005)
         print("Disconnecting serial and pyvisa connections...")
