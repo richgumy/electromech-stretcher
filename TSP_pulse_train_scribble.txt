@@ -1,0 +1,187 @@
+A few examples for how to code up pulse trains and reading buffers:
+- Try python.. if this doesn't work,
+- Try using TSP browser based text-editor to upload code via LAN
+
+
+---------------InitiatePulseTest()---------------
+-- use to clear output queue
+*CLS
+
+-- EG 1:
+smua.reset()
+smua.source.rangev = 5
+smua.source.rangei = 1
+smua.source.levelv = 0
+smua.measure.rangev = 5
+smua.measure.rangei = 1
+smua.measure.nplc = 0.01
+smua.measure.autozero = smua.AUTOZERO_ONCE
+smua.nvbuffer1.clear()
+smua.nvbuffer1.appendmode = 1
+smua.source.output = smua.OUTPUT_ON
+f1, msg1 = ConfigPulseVMeasureI(smua, 0, 5, 1, 0.002, 0.2, 10, smua.nvbuffer1, 1)
+-- FORMAT => f, msg = ConfigPulseVMeasureI(smu, bias, level, limit, ton, toff, points, buffer, tag)
+if f1 == true then
+  f2, msg2 = InitiatePulseTest(1)
+  print("Initiate message:", msg2)
+else
+  print("Config errors:", msg1)
+end
+printbuffer(smua.nvbuffer1)
+num_buffer_readings = smua.nvbuffer1.n
+buffer_size = smua.nvbuffer1.capacity
+
+-- EG 2 - Simultaneous IV measurement:
+rbi = smua.makebuffer(10)
+rbv = smua.makebuffer(10)
+rbi.appendmode = 1
+rbv.appendmode = 1
+rbs = { i = rbi, v = rbv }
+f, msg = ConfigPulseVMeasureI(smua, 0, 10, 1e-3, 1e-3, 1e-3, 2, rbs, 1)
+printbuffer(rbi)
+printbuffer(rbi)
+savebuffer(rbi,"csv","/usb1/mybuffer.csv")
+
+
+---------------UsingBuffersExample---------------
+-- Restore Series 2600B defaults.
+smua.reset()
+-- Select channel A display.
+display.screen = display.SMUA
+-- Display current.
+display.smua.measure.func = display.MEASURE_DCAMPS
+-- Select measure I autorange.
+smua.measure.autorangei = smua.AUTORANGE_ON
+-- Select ASCII data format.
+format.data = format.ASCII
+-- Clear buffer 1.
+smua.nvbuffer1.clear()
+-- Enable append buffer mode.
+smua.nvbuffer1.appendmode = 1
+-- Enable source value storage.
+smua.nvbuffer1.collectsourcevalues = 1
+-- Set count to 1.
+smua.measure.count = 1
+-- Select source voltage function.
+smua.source.func = smua.OUTPUT_DCVOLTS
+-- Set bias voltage to 0 V.
+smua.source.levelv = 0.0
+-- Turn on output.
+smua.source.output = smua.OUTPUT_ON
+-- Loop for voltages from 0.01 V to 1 V.
+for v = 1, 100 do
+-- Set source voltage.
+smua.source.levelv = v * 0.01
+-- Measure current and store in nvbuffer1.
+smua.measure.i(smua.nvbuffer1)
+end
+-- Turn off output.
+smua.source.output = smua.OUTPUT_OFF
+-- Output readings 1 to 100.
+printbuffer(1, smua.nvbuffer1.n, smua.nvbuffer1.readings)
+-- Output source values 1 to 100.
+printbuffer(1, smua.nvbuffer1.n, smua.nvbuffer1.sourcevalues)
+
+
+-------------AVeryManualPulseTrain---------------------
+-- Generate a 10-point pulse train where each pulse has a width of 600
+-- microseconds and a pulse period of 5 milliseconds.
+-- Alias the trigger timers to use for pulse width and period.
+period_timer = trigger.timer[1]
+pulse_timer = trigger.timer[2]
+-- Create a fixed level voltage sweep.
+smua.trigger.source.listv({5})
+smua.trigger.source.action = smua.ENABLE
+smua.source.rangev = 5
+smua.trigger.measure.action = smua.DISABLE
+-- Set pulse width.
+pulse_timer.delay = 0.0006
+-- Trigger pulse width timer with period timer.
+pulse_timer.stimulus = period_timer.EVENT_ID
+-- Output one pulse per period.
+pulse_timer.count = 1
+-- Set the pulse period.
+period_timer.delay = 0.005
+-- Set pulse period count to generate 10 pulses.
+period_timer.count = 9
+-- Trigger pulse period timer when a sweep is initiated.
+period_timer.stimulus = smua.trigger.SWEEPING_EVENT_ID
+-- Configure the timer to output a trigger event when it
+-- starts the first delay.
+period_timer.passthrough = true
+-- Trigger SMU source action using pulse period timer
+smua.trigger.source.stimulus = period_timer.EVENT_ID
+-- Trigger SMU end pulse action using pulse width timer.
+smua.trigger.endpulse.action = smua.SOURCE_IDLE
+smua.trigger.endpulse.stimulus = pulse_timer.EVENT_ID
+-- Set Trigger Model counts.
+smua.trigger.count = 1
+-- Configure the SMU to execute a 10-point pulse train.
+smua.trigger.arm.count = 10
+-- Prepare SMU to output pulse train.
+smua.source.output = smua.OUTPUT_ON
+smua.trigger.initiate()
+-- Wait for the sweep to complete.
+waitcomplete()
+
+------------WhatWorks------------------
+smua.reset()
+smua.source.rangev = 20
+smua.source.rangei = 100e-6
+smua.source.leveli = 0
+smua.measure.rangev = 5
+smua.measure.rangei = 100e-6
+smua.measure.nplc = 1 # 20ms
+smua.measure.autozero = smua.AUTOZERO_ONCE
+smua.nvbuffer1.clear()
+smua.nvbuffer1.appendmode = 1
+smua.source.output = smua.OUTPUT_ON
+-- Pulse -10uA for 2s then +10uA for 2s (only taking positive readings)
+smu.write("f1, msg1 = ConfigPulseIMeasureV(smua, -10e-6, 10e-6, 20, 2, 2, 10, smua.nvbuffer1, 1)")
+if f1 == true then
+  f2, msg2 = InitiatePulseTest(1)
+  print("Initiate message:", msg2)
+else
+  print("Config errors:", msg1)
+end
+
+>>> smu.query("printbuffer(0,smua.nvbuffer1.n,smua.nvbuffer1)")
+'9.910000e+37, 3.081455e-01, 3.083298e-01, 3.082888e-01, 3.077626e-01, 3.076117e-01,
+ 3.075125e-01, 3.055124e-01, 3.034041e-01, 3.022032e-01, 3.041596e-01\n'
+then ->
+>>> smu.query("smua.nvbuffer1.clear()")
+>>> smu.query("printbuffer(0,smua.nvbuffer1.n,smua.nvbuffer1)")
+'9.910000e+37\n'
+
+-- Can't access nvbuffer1 mid cycle of InitiatePulseTest
+
+
+-------------Notes----------------
+"It is best to precede the call to the PulseIMeasureV() function with commands to:
+set fixed source range
+set fixed measure range
+set autozero to ONCE or OFF
+set NPLC to be less time than ton"
+
+To read from buffer while taking measurements:
+need a try-except statement to allow for any race-conditions? multiple access
+issues for the buffers being written.
+::Lua-pseudo-code::
+f1, msg1 = ConfigPulseIMeasureV(smua, -10e-6, 10e-6, 20, 0.02, 0.05, 10, smua.nvbuffer1, 1)
+while True:
+  if f1 == true then
+    f2, msg2 = InitiatePulseTest(1)
+    -- Next while loop may not be required
+    while msg2 == Null: -- While the pulse test is still being completed
+      -- Do nothing
+    print("Initiate message:", msg2)
+  else
+    print("Config errors:", msg1)
+  end
+  rbv = smua.nvbuffer1
+  print()
+
+  Solutions:
+  1 - change nplc to 0.01 then average 20 samples which can periodically be grabbed by the PC.
+  2 - wait for a big sweep to complete (i.e. 60,000 readings) then grab the data and timestamps.
+  3 - write a bunch of small buffers (i.e. 4 every 20ms) then read the buffers and clear them.

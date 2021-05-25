@@ -7,20 +7,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 
+def sinusoid_maker(amplitude_strain, freq, offset_strain):
+    """
+    DESCR: Setup grbl parameters to apply a quantised sinusoidal strain waveform
+    IN_PARAMS: amplitude_strain of sinusoid in mm, frequency in Hz, offset_strain in mm (default = amplitude_strain/2)
+    OUTPUT: velocity in mm/s
+    NOTES:    Requires serial library and Grbl
+              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
+              Cannot produce compresive strain only tensile
+    """
+    delta_t = 0.01 # hard code the quantisation time
+    T = 1 / freq # period
+    n = int(T / delta_t) # samples per wavelength
+    t = np.linspace(0,T,n+1) # wavelength time array
+    x_prev = 0 # previous x used for differentiation
+    x = np.zeros(n+1) # output step array
+    dx_dt = np.zeros(n+1) # output velocity array
+    for i in range(n+1):
+        x[i] = amplitude_strain*np.sin(2*np.pi*freq*t[i]) + offset_strain
+        dx_dt[i] = (x[i] - x_prev)/(delta_t)
+        if i == 1:
+            dx_dt[i-1] = dx_dt[i]
+        x_prev = x[i]
+    return t, x, dx_dt
 
-# Adding a Y-Axis Label to the Secondary Y-Axis in Matplotlib
-
-# creating data for plot
-# data arrangement between 0 and 50
-# with the difference of 2
-# x-axis
-x = np.arange(0, 50, 2)
-
-# y-axis values
-y1 = x**2
-
-# secondary y-axis values
-y2 = x**3
+t, strain_profile, velocity_profile = sinusoid_maker(2,1,2)
 
 # plotting figures by creating aexs object
 # using subplots() function
@@ -30,15 +41,15 @@ fig, ax = plt.subplots(figsize = (10, 5))
 # using the twinx() for creating another
 # axes object for secondry y-Axis
 ax2 = ax.twinx()
-ax.plot(x, y1, color = 'g')
-ax2.plot(x, y2, color = 'b')
+ax.plot(t, strain_profile, color = 'g')
+ax2.plot(t, velocity_profile, color = 'b')
 
 # giving labels to the axises
-ax.set_xlabel('x-axis', color = 'r')
-ax.set_ylabel('y1-axis', color = 'g')
+ax.set_xlabel('t')
+ax.set_ylabel('strain', color = 'g')
 
 # secondary y-axis label
-ax2.set_ylabel('Secondary y-axis', color = 'b')
+ax2.set_ylabel('velocity', color = 'b')
 
 # defining display layout
 plt.tight_layout()

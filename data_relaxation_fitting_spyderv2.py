@@ -10,12 +10,19 @@ TODO:
 """
 
 import csv
+import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MaxNLocator
 from matplotlib import cm # colour map
 import numpy as np
 from scipy import optimize
+import scipy.stats as stats
+
+font = {'family' : 'normal',
+        'size'   : 16}
+
+matplotlib.rc('font', **font)
 
 def split_ramp_data(data):
     """
@@ -52,57 +59,12 @@ def MAF(x,N):
 
     return x_smooth
 
-def E1_E2_solver(x,y):
-    """
-    DESCR: Solves quadratic and determines realistic elastic moduli values for
-    SLM (solid linear model).
-    From equation:
-       stress(t) =  x*e0 + C*np.exp(-(y/mu)*t)
-    converting to ...
-       stress(t) = (E1*E2)/(E1+E2) * e0 + C*np.exp(-((E1+E2)/mu)*t)
-    IN_PARAMS: x,y
-    NOTES:
-    TODO:
-    """
-    # Finding actual E1 and E2
-    E1 = 0
-    E2 = 0
-    E2_p = (y+np.sqrt(y**2-4*x*y))/2
-    E2_n = (y-np.sqrt(y**2-4*x*y))/2
-    if E2_p > 0 and E2_n < 0:
-        E2 = E2_p
-        E1 = E2 - y
-    elif E2_p > 0 and E2_n >= 0:
-        E1_n = y - E2_n
-        E1_p = y - E2_p
-        if E1_p > 0 and E1_n < 0:
-            E1 = E1_p
-            E2 = E2_p
-        else:
-            E1 = E1_n
-            E2 = E2_n
-            print("Other positive solutions for E1 & E2 may exist.")
-    if E1 == 0 or E2 == 0:
-        E1 = 1
-        E2 = 1
-        print("E1 or E2 equal zero. Non SLM model!(Maxwell or Kelvin-Voight)")
-    return E1, E2
-
-def find_Rsqr(f, x_data, y_data):
-    """
-    DESCR: Gives the Rsquared value for x/y data fitted to function 'f(x)=y'
-    IN_PARAMS: f(x_data), x data, y data
-    NOTES:
-    TODO: Alter for use with non-linear function 'f'
-    """
-    SS_tot = 0
-    SS_resid = 0
-    y_avg = sum(y_data)/len(y_data)
-    for i in range(len(x_data)):
-        SS_tot = SS_tot + (y_data[i] - y_avg)**2
-        SS_resid = SS_resid + (y_data[i] - f[i])**2
-    R_sqr = 1 - SS_resid/SS_tot
-    return R_sqr
+def pos_outlier_corrector(strain_arr):
+    new_strain_arr = strain_arr
+    for i in range(1,len(strain_arr)):
+        if abs(strain_arr[i] - strain_arr[i-1]) > 3:
+            new_strain_arr[i] = strain_arr[i-1]
+    return new_strain_arr
 
 ### MAIN CODE STARTS HERE ###
 
@@ -111,7 +73,9 @@ spec_length = 40e-3
 spec_width = 10e-3
 spec_thickness = 4e-3
 
-input_filename = "2_7-5_Epin_20mm_v4.csv"
+# input_filename = "1_10_E4pin_20mm_v6.csv"
+input_filename = "2_7-5_Epin_20mm_v3.csv"
+
 
 # Extract from csv
 if (input_filename[-4:] != '.csv'): input_filename = input_filename + '.csv' # Assume file is .csv if not explicitly stated in main parameter input
@@ -143,6 +107,8 @@ with open(input_filename, 'r', newline='') as csvfile:
             print("%.2f" % (i/len(data)))
             i = i + 1
             # print(row[0],row[1],row[2],row[3],row[4],row[5])
+
+P = pos_outlier_corrector(P)
 
 # Interpolate all data
 Fintp_P = np.interp(tP,tF,F)
@@ -290,34 +256,35 @@ pGen_init = [1,1,1,1,1]
 p_poly2_init = [1,1,1]
 
 start_offset = 6 # time/index offset compensate for lag between strain change and resistance/stress
+end_offset = 1
 plot_colour = 'g'
 
 try:
     # for i in range(2):
-    fig1, ax1 = plt.subplots()
-    fig2, ax = plt.subplots(figsize = (10, 5))
+    fig1, ax1 = plt.subplots(figsize = (10, 8))
+    # fig2, ax = plt.subplots(figsize = (10, 5))
     # for i in range(1,int(len(strain_splits)*0.075)): 
-    for i in range(1,int(len(strain_splits)/4)): 
-        Res_load = Ri_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])]
+    for i in range(int(len(strain_splits)/8),int(len(strain_splits)/4)): 
+        Res_load = Ri_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
         Res_load_min = np.min(Res_load)
         Res_load = Res_load - Res_load_min
 
-        Strain_load = Strain_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])]
+        Strain_load = Strain_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
 
-        Stress_load = Stress_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])]
+        Stress_load = Stress_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
         Stress_load_min = np.min(Stress_load)
         Stress_load = Stress_load - Stress_load_min
 
-        t_load = t_lin[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])]
+        t_load = t_lin[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
         t_load = t_load - t_load[0]
 
 
         # # Levenberg–Marquardt algorithm for non-linear leastsq, fitting the stress data to SLS relaxation models
-        # poptS_gen, pcovS_gen = optimize.curve_fit(generalisedi3, t_load, Stress_load, p0=pGen_init, maxfev=50000)
+        poptS_gen, pcovS_gen = optimize.curve_fit(generalisedi3, t_load, Stress_load, p0=pGen_init, maxfev=50000)
         popt_RS = np.polyfit(Res_load, Stress_load, 2)
 
 
-        # pGen_init = poptS_gen
+        pGen_init = poptS_gen
         p_poly2_init = popt_RS
 
         t_load_lin = np.linspace(min(t_load),max(t_load) , 100)
@@ -328,18 +295,19 @@ try:
 
         # fig1, ax1 = plt.subplots()
         ax1.plot(Res_load,Stress_load,color='r',marker='x',ls='')
-        ax1.plot(Res_load_lin,Stress_load_lin_poly2,color='y',ls='-')
+        # if i == int(len(strain_splits)/4):
+        # ax1.plot(Res_load_lin,Stress_load_lin_poly2,color='y',ls='-')
         ax1.set_ylabel('Stress [Pa]')
         ax1.set_xlabel('Resistance [Ohm]')
         
         # fig2, ax = plt.subplots(figsize = (10, 5))
-        ax2 = ax.twinx()
-        ax.plot(t_load,Stress_load,'rx')
-        ax2.plot(t_load,Res_load,'bx')
-        ax.set_xlabel('Time[s]')
-        ax.set_ylabel('Stress [Pa]',color='r')
-        ax2.set_ylabel('Resistance [Ohm]',color='b')
-        plt.tight_layout()
+        # ax2 = ax.twinx()
+        # ax.plot(t_load,Stress_load,'rx')
+        # ax2.plot(t_load,Res_load,'bx')
+        # ax.set_xlabel('Time[s]')
+        # ax.set_ylabel('Stress [Pa]',color='r')
+        # ax2.set_ylabel('Resistance [Ohm]',color='b')
+        # plt.tight_layout()
 
         # poptS_gen[2] = poptS_gen[0] #+ Stress_load_min
         # consts_geni3.append(poptS_gen)
@@ -368,17 +336,39 @@ try:
     ax1.plot(Res_load,Stress_load,color='g',marker='x',ls='')
     ax1.set_ylabel('Stress [Pa]')
     ax1.set_xlabel('Resistance [Ohm]')
+    # ax1.legend(["Relaxation = 1 - 29","Relaxation = 30","Relaxation = 0"])
+    
+    # Plot fitted curve on very top
+    Res_load_lin = np.linspace(min(Res_load),max(Res_load)-10 , 100)
+    average_consts = [0.055392468,4.1459548,121.84479]
+    Stress_load_lin_poly2 = poly2(Res_load_lin, *average_consts)
+    ax1.plot(Res_load_lin,Stress_load_lin_poly2,color='y',ls='-')
 
 finally:
+    consts_poly2 = np.array(consts_poly2)
+    consts_poly2 = np.transpose(consts_poly2)
     print(consts_poly2)
-
-    # for j in (range(len(consts_poly2[0]))):
-    #     const = []
-    #     for i in (range(len(consts_poly2))):
-    #         const.append(consts_poly2[i][j])
-    #     fig, axs = plt.subplots(1, 1, constrained_layout=True)
-    #     ax = axs
-    #     ax.plot(const,'bx')
-    #     ax.grid(True)
-
+    
+    # a_indices = [0,1,3,5] # a_x indices
+    tau_indices = [2,4] # tau_x indices
+    fig1, ax1 = plt.subplots()
+    for i in (range(len(consts_poly2))):
+    # for i in range(len(tau_indices)):
+        const = consts_poly2[i]
+        # const = const[0:17]
+        # fig1, ax1 = plt.subplots()
+        ax1.plot(const,'rx')
+        ax1.grid(True)
+        const_mean = sum(const)/len(const)
+        print("mean",const_mean)
+        const_std = stats.tstd(const)
+        print("std",const_std)
+        const_var = stats.tvar(const)
+        print("std %",100*const_std/const_mean)
+        
+        x_axis = np.arange(const_mean - const_mean, const_mean + const_mean, 0.01)
+        fig, ax = plt.subplots(1, 1, constrained_layout=True)
+        ax.plot(x_axis, stats.norm.pdf(x_axis,const_mean,const_std))
+        ax.grid(True)
+        
     plt.show()

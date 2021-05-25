@@ -56,8 +56,8 @@ def main(tolerance): # Tolerance = How close to zero force/stress is close enoug
     ## Setup grbl serial coms:
     avail_devs = list_serial_devices()
     print(avail_devs)
-    dev = input("What is the index of the desired COM port? ")
-    s = serial.Serial(avail_devs[int(dev)],115200,timeout=2) #comment this and uncomment above for interactive choice of com port
+    # dev = input("What is the index of the desired COM port? ")
+    s = serial.Serial(avail_devs[4],115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
 

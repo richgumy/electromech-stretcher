@@ -12,7 +12,7 @@ assumed as an attribute of K2600. For example K2600.function is not explicitly
 declared within the code but will be converted to a string, verfied as a valid
 Lua command and then sent to the SMU via a pyvisa write or query command.
 
-Uses pyvisa as to form connection.
+Uses pyvisa to form connection.
 
 TODO:
 1 - Hard code listed functions (copy 'display.measure.func' as a guide for other
