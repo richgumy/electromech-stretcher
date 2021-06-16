@@ -21,226 +21,28 @@ TODO:
 
 """
 
-import random
+
+# import random
 import sys, traceback
-import csv
+# import csv
 import matplotlib.pyplot as plt
-import numpy as np
+# import numpy as np
 import serial
-import serial.tools.list_ports
+# import serial.tools.list_ports
 import time
 from datetime import datetime
 import re
 import pyvisa
 import nidaqmx
-from nidaqmx.constants import LineGrouping
-from nidaqmx.constants import Edge
-from nidaqmx.constants import AcquisitionType
+
+# Homebrew libraries:
+import data_ems
+import linact_grbl
 from k2600 import K2600 # see k2600.py for usage
 import k2600
-# from cmeter350610 import Cmeter350610
+# from cmeter350610 import Cmeter350610 # see cmeter350610.py for usage
 
 MAX_LOADCELL_FORCE = 6.5 # Maximum loadcell force in Newtons
-
-### Linear actuator functions:
-def write_g(serial_handle, msg):
-    """
-    DESCR: Sends encoded message to serial_handle device
-    IN_PARAMS: serial handle if from serial.Serial(), g-code message to send
-    OUTPUT: Serial write status
-    NOTES:    Requires serial library
-              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-    """
-    return serial_handle.write((msg+'\n').encode())
-
-def readchar_g(serial_handle):
-        """
-        DESCR: Reads decoded character from serial_handle device
-        IN_PARAMS: serial handle if from serial.Serial(), g-code message to send
-        OUTPUT: Serial read message character
-        NOTES:    Requires serial library
-                  Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-        """
-        return serial_handle.read().decode()
-
-def readbuf_g(serial_handle):
-        """
-        DESCR: Reads whole decoded message from from serial_handle device
-        IN_PARAMS: serial handle if from serial.Serial(), g-code message to send
-        OUTPUT: Serial read message list, each item is a newline
-        NOTES:    Requires serial library
-                  Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-        """
-        message_lines = []
-        message = serial_handle.readline().decode()
-        while message:
-            message_lines.append(message)
-            message = serial_handle.readline().decode()
-        return message_lines
-
-def readline_g(serial_handle):
-        """
-        DESCR: Reads decoded g-code string until newline character from serial_handle device
-        IN_PARAMS: serial handle if from serial.Serial(), g-code message to send
-        OUTPUT: Serial read message string
-        NOTES:    Requires serial library
-                  Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-        """
-        return serial_handle.readline().decode()
-
-def init_motion_params(serial_handle, max_accel="50", units="mm", steps_p_mm="250", motion="lin_interp", dist_mode="rel"):
-    """
-    DESCR: Sets linear actuator limits and params
-    IN_PARAMS: max. acceleration, position units, steps per 1mm displacement, linear motion control mode", relative or absolute displacement
-    OUTPUT: N/A
-    NOTES:  Requires serial library
-            Requires time library
-            Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-    """
-    write_g(serial_handle, "\r\n\r\n") # Wake up grbl
-    time.sleep(2)   # Wait for grbl to initialize
-    serial_handle.flushInput()
-    #set acceleration
-    write_g(serial_handle,"$122="+max_accel)
-    #set units
-    if units=="mm":
-        write_g(serial_handle,"G21")
-    elif units=="inch":
-        write_g(serial_handle,"G20")
-    else:
-        print("invalid unit")
-    #set steps per mm
-    write_g(serial_handle,"$102="+steps_p_mm)
-    #set motion mode
-    if motion=="lin_interp":
-        write_g(serial_handle,"G1") #acceleration and speed limited
-    else:
-        write_g(serial_handle,"G0") #no limit on acceleration or speed
-    #set distance mode
-    if dist_mode=="rel":
-        write_g(serial_handle,"G91")
-    elif dist_mode=="abs":
-        write_g(serial_handle,"G90")
-    else:
-        print("invalid distance mode")
-    return 0
-
-def sinusoid_maker(amplitude, freq, offset, t_tot, delta_t):
-    """
-    DESCR: Setup grbl parameters to apply a quantised sinusoidal waveform
-    IN_PARAMS: amplitude of sinusoid, frequency in Hz, offset_strain in (default = amplitude/2)
-    OUTPUT: time, x and dx_dt arrays
-    NOTES:    Requires serial library and Grbl
-              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-              Cannot produce negative values for x
-    """
-    n = int(t_tot / delta_t) # samples per wavelength
-    t = np.linspace(0,t_tot,n+1) # wavelength time array
-    x_prev = 0 # previous x used for differentiation
-    x = np.zeros(n+1) # output step array
-    dx_dt = np.zeros(n+1) # output velocity array
-    for i in range(n+1):
-        x[i] = amplitude*np.sin(2*np.pi*freq*t[i]) + offset
-        dx_dt[i] = (x[i] - x_prev)/(delta_t)
-        if i == 1:
-            dx_dt[i-1] = dx_dt[i]
-        x_prev = x[i]
-    return t, x, dx_dt
-
-def rand_multisine_generator(num_sines, freq_range, amp_range, t_tot, max_amp):
-    """
-    DESCR: Geenerate a quantised multisinusoidal strain waveform
-    IN_PARAMS: number of sinusoids, range of sinusoid amplitudes [mm] in form [min,max],
-    frequency range of sinusoids [Hz] in form [min,max], total duration of multisine
-    OUTPUT: time, strain and velocity profiles. Amplitude and frequency arrays
-    NOTES:    Requires libraries: serial and Grbl and random
-              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-              Cannot produce compresive strain only tensile
-              Can use the amplitude and frequency arrays to confirm that FFT on the data makes sense
-    TODO:
-     1. Make all generated start from zero
-        -> move extremely slowly at a constant speed to the start point of waveform strain
-            OR time shift all sinusoids apart from one
-            OR shift to start point and wait for resistance to relax until starting experiment
-    2. Currently has an unlimited size for the output arrays, which can be too large for arduino
-        GRBL to handle. GRBL can handle a max. of approx 50?? g-code commands. Yet to confirm...
-    3. Output velocity is offset!! Is should be centered around zero!!
-    """
-    ampl_array = np.zeros(num_sines)
-    freq_array = np.zeros(num_sines)
-
-    # Minimize the amount of data points required (fs >= 10*max(freq_range))
-    Ts = 1 / (10 * max(freq_range))
-
-    # makes a 't' array of correct size
-    t, test_sine, test_v_sine = sinusoid_maker(1, 1, 1, t_tot, Ts)
-
-    sine_array = np.zeros([num_sines, len(t)])
-    sine_velocity_array = np.zeros([num_sines, len(t)])
-
-    # generate a set number of 'random' sinusoids
-    for i in range(num_sines):
-        ampl_array[i] = round(random.uniform(amp_range[0],amp_range[1]))
-        freq_array[i] = round(random.uniform(freq_range[0],freq_range[1]),3)
-        t, sine_array[i], sine_velocity_array[i] = sinusoid_maker(ampl_array[i], freq_array[i], ampl_array[i], t_tot, Ts)
-
-    # sum all sines and ensure min value is set to zero.
-    sine_array_tot = sum(sine_array) - min(sum(sine_array))
-    sine_velocity_tot = sum(sine_velocity_array)
-
-    # scale down sine array such that the max. value is equal to max_amp
-    scale_factor = max(sine_array_tot) / max_amp
-    sine_array_tot = sine_array_tot / scale_factor
-    sine_velocity_tot = sine_velocity_tot / scale_factor
-
-    print("Characteristics of sinusoids:")
-    print("Amplitudes:", ampl_array)
-    print("Frequencies:", freq_array)
-    print("Scale_factor:", scale_factor)
-    print("Max. speed:",max(sine_velocity_tot))
-    print("Max. strain:",max(sine_array_tot))
-    print("Size of array:",len(sine_array_tot))
-    input("Press Ctrl+C if these values are not ok, else press Enter")
-
-    return t, sine_array_tot, sine_velocity_tot, ampl_array, freq_array, Ts
-
-def linear_travel(serial_handle, lin_speed="60", displacement="1"):
-    """
-    DESCR: Sends linear motion step to lin actuator
-    IN_PARAMS: linear speed in mm/min, displacement in mm.
-    OUTPUT: N/A
-    NOTES:    Requires serial library and Grbl
-              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-    """
-    serial_handle.flushInput()
-    #set speed and displacement
-    write_g(serial_handle,"G21G1"+"F"+str(lin_speed)+"Z"+str(displacement))
-    return 0
-
-def read_pos(serial_handle):
-    """
-    DESCR: Reads current linear position of lin actuator
-    IN_PARAMS: N/A
-    OUTPUT: Absolute position in mm (string)
-    NOTES:  Linear actuator is open loop so position is only estimated with motor steps
-            Requires regex (re) library
-            Requires serial library
-            Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
-    """
-
-    write_g(serial_handle,"?")
-    raw_status = readline_g(serial_handle)
-    current_position = raw_status.strip('<>\n\r').split(',')[-1] #string manipulation
-    if re.search('[a-zA-Z]', current_position):
-        current_position = 0.0
-    else:
-        try:
-            current_position = float(current_position)
-        except ValueError:
-            print("could not convert string('%s') to float -> current_pos set to zero" % current_position)
-            current_pos = 0.0
-    serial_handle.flushInput()
-    return current_position
 
 def list_serial_devices():
     """
@@ -255,8 +57,6 @@ def list_serial_devices():
     for i in range(len(avail_devs)):
         devs_list.append(avail_devs[i].device)
     return devs_list
-
-
 
 ### 4/2 wire ohmmeter data acquisition functions:
 def init_smu_ohmmeter_params(smu_handle,outer_I,outer_Vmax,num_wire=2,nplc=1):
@@ -311,8 +111,12 @@ def init_smu_AC_pulse(smu_handle):
     IN_PARAMS: smu_handle
     OUTPUT: Current resistance reading, average time since start time, time taken for reading
     NOTES:  Requires pyvisa,time and k2600 libraries
-    TODO: 1) Add AC measurement mode functionality +ve and -ve pulses
-    2) Output timing for v and i measurements to determine if they are approx. 1PLC ea(+message send time)?
+    TODO: 
+        1) Add AC measurement mode functionality +ve and -ve pulses
+        2) Output timing for v and i measurements to determine if they are approx. 1PLC ea(+message send time)?
+    
+    NOT COMPLETE
+    
     """
     I_src = float(smu_handle.smua.source.leveli(smu_handle)) # get source current value for pulse train
     smu_handle.smua.makebuffer(smu_handle,buf_size,"Vbuffer") # MAKE FUNCTION FOR THIS IN K2600
@@ -383,90 +187,7 @@ def init_loadcell_params(loadcell_handle):
     loadcell_handle.timing.cfg_samp_clk_timing(10000, samps_per_chan=10)
     return 0
 
-
-
-## Data processing fucntions:
-def write_PosResForce_to_CSV(filename,resistance_outer, resistance_inner, time_R, displacement, time_d, force, time_f):
-    """
-    DESCR: Loads 6 columns of data into a filename.csv file
-    IN_PARAMS: resistance(outer electrodes), resistance (inner electrodes), displacement, force, and their timestamps
-    OUTPUT: N/A
-    NOTES:  Requires all inputs to be present to operate
-    TODO: Make more generalised function for different data logging
-    """
-    with open(filename+'.csv', 'w', newline='') as csvfile:
-        data = csv.writer(csvfile, delimiter=',')
-        for i in range(len(time_R)):
-            data.writerow([resistance_outer[i],resistance_inner[i], time_R[i], displacement[i], time_d[i],
-                force[i], time_f[i]])
-    return 0
-
-def stringify_list(in_list, dimension=1):
-    """
-    DESCR: Turn all elements from a 1,2,or 3 dimension list into a list of strings
-    IN_PARAMS: list, dimension of list
-    OUTPUT: new list of strings
-    NOTES:  Requires all evenly dimensioned list (e.g. couldn't have >>stringify_list([[1,2],1], 2))
-    TODO: Automatically detect dimension of input list
-    """
-    new_list1 = []
-    for i1 in range(len(in_list)):
-        if dimension > 1:
-            new_list2 = []
-            for i2 in range(len(in_list[i1])):
-                if dimension > 2:
-                    new_list3 = []
-                    for i3 in range(len(in_list[i1][i2])):
-                        new_list3.append(str(in_list[i1][i2][i3]))
-                    new_list2.append(new_list3)
-                else:
-                    new_list2.append(str(in_list[i1][i2]))
-            new_list1.append(new_list2)
-        else:
-            new_list1.append(str(in_list[i1]))
-    return new_list1
-
-def average_list(in_list):
-    sum = 0
-    for item in in_list:
-        sum = sum + float(item)
-    return sum/len(in_list)
-
-## Zero force calibration function
-def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
-    """
-    DESCR: Rough PI controller to get stress in test rig to zero
-    IN_PARAMS: loadcell_handle, serial_handle, zero tolerance [N]
-    NOTES: Not well tested.
-    TODO:
-    """
-    error = tolerance*2 # start error bigger than tolerance
-    error_prev = 0
-    buf_size = 40
-    f_buf = [0]*buf_size
-    speed = 180
-    Kp = 4 # control P gain constant
-    Ki = 0.5 # control I gain constant
-    while abs(error) > tolerance:
-        for i in range(buf_size):
-            raw_data = loadcell_handle.read(2) # read 1 data point
-        force_av = sum(raw_data)/len(raw_data)
-        print('force:%.5fN' % force_av)
-        error = Kp*force_av + Ki*(error - error_prev)
-        print('error:%.5f' % error)
-        if error > 2 : error = 2
-        if error < -2 : error = -2
-        linear_travel(serial_handle, str(speed), str(error)) # (s, "speed" , "dist")
-        wait_time = abs(float(error)/float(speed))
-        print('t=%.5f' % wait_time)
-        prev_error = error
-        time.sleep(wait_time) # add a bit of settling time for stress relaxation
-    time.sleep(2)
-    for i in range(buf_size):
-        raw_data = loadcell_handle.read(2) # read 1 data point
-    force = sum(raw_data)/len(raw_data)
-    print("Final force = %.5fN" % force)
-    time.sleep(2)
+##############################################MAIN##############################################
 
 def main():
     ## Setup grbl serial coms:
@@ -476,7 +197,7 @@ def main():
     # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
     s = serial.Serial("COM8",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
-    init_motion_params(s,dist_mode="abs") # Init Grbl and set travel displacement mode to absolute
+    linact_grbl.init_motion_params(s,dist_mode="abs") # Init Grbl and set travel displacement mode to absolute
 
     # set csv file name for data capture
     filename = input("File name? !Caution will overwrite files without warning!\n (e.g sample number+CB %+electrode type+distance between electrodes+repetitions of test=\n=samp1_CB7-5_Epin_20mm_v2):")
@@ -519,20 +240,20 @@ def main():
     time_data_force = []
 
     # set new zero
-    write_g(s,"G90")
-    write_g(s,"G10 P0 L20 X0 Y0 Z0")
+    linact_grbl.write_g(s,"G90")
+    linact_grbl.write_g(s,"G10 P0 L20 X0 Y0 Z0")
 
     ####################################
     ### Set velocity profile params: ###
     ####################################
     ## Total time
-    t_tot = 40
-    f_range = [0.001,0.1]
+    t_tot = 600
+    f_range = [0.001,0.2]
     strain_range = [0.5,6]
-    num_sines = 6
-    max_strain = 12
+    num_sines = 8
+    max_strain = 14
 
-    t, strain_profile, velocity_profile, ampl_array, freq_array, delta_t = rand_multisine_generator(num_sines, f_range, strain_range, t_tot, max_strain)
+    t, strain_profile, velocity_profile, ampl_array, freq_array, delta_t = data_ems.rand_multisine_generator(num_sines, f_range, strain_range, t_tot, max_strain)
 
     strain_profile = -strain_profile
     velocity_profile = abs(velocity_profile)*60 # only have positive velocities and scale to mm/minute
@@ -551,7 +272,7 @@ def main():
     # plot strain and strain velocity profiles
     fig, ax = plt.subplots(figsize = (10, 5))
     ax2 = ax.twinx()
-    ax.plot(t, strain_profile, color = 'g')
+    ax.plot(t, -strain_profile, color = 'g')
     ax2.plot(t, velocity_profile, color = 'b')
     ax.set_xlabel('t')
     ax.set_ylabel('strain', color = 'g')
@@ -572,10 +293,15 @@ def main():
         step_counter = 0
 
         current_pos = 0 # init for while loop condition
-        # lag_start = 0 # to capture data from just after the strain has stopped
-        # lag = 0
-        diff_avg = -100000
-        diff_buf = np.ones(400)*diff_avg
+
+        block_counter = 0
+        # send first block of steps
+        for step_indx in range(20*block_counter,20*(block_counter+1)): # 20 seems to be the grbl buffer size
+            strain = strain_profile[step_indx]
+            velocity = velocity_profile[step_indx]
+            linact_grbl.linear_travel(s, velocity, strain)
+            print("step set ", step_indx)
+        block_counter = block_counter + 1
 
         start_loop_time = time.time()
         current_time = start_loop_time + 0.1
@@ -583,19 +309,17 @@ def main():
         pos_err_tol = 0.01
         pos_err = 10 # init pos_err as an appropriately high value
 
-        block_counter = 0
-
-        # send first block of steps
-        for step_indx in range(20*block_counter,20*(block_counter+1)): # 20 seems to be the grbl buffer size
-            strain = strain_profile[step_indx]
-            velocity = velocity_profile[step_indx]
-            linear_travel(s, velocity, strain)
-            print("step set ", step_indx)
-            block_counter = block_counter + 1
+        print("time to start:",(strain_profile[0]/speed2start)*60)
 
         while (loop_time < t_tot):
-            # print("block time:",20*delta_t*(block_counter+1)," Current time:",current_time)
-            if (current_time - 20*delta_t*(block_counter+1)) < delta_t: # send one lot of 20 steps every xx seconds. Multiplied by 10 to round to the nearest 100 millisecond.
+            # print("current_time: ",current_time)
+            # print("block_counter: ",block_counter)
+            # print("delta_t? ",((current_time - (abs(strain_profile[0]/speed2start)*60)) - 20*delta_t*(block_counter)))
+            # print("delta_t:", delta_t)
+            # # Send one lot of 20 steps every ~19 steps taken. Multiplied by 10 to round the time to the
+            # #   nearest 100 millisecond. Current time minus the time taken to get to the start point.
+            # #   Threshold for starting next block is when the 19th step is being executed
+            if abs((current_time - (abs(strain_profile[0]/speed2start)*60)) - 19*delta_t*(block_counter)) < delta_t:
                 blk_s = 20*block_counter
                 blk_f = 20*(block_counter+1)
 
@@ -607,17 +331,12 @@ def main():
                 for step_indx in range(blk_s,blk_f): # 20 seems to be the grbl buffer size
                     strain = strain_profile[step_indx]
                     velocity = velocity_profile[step_indx]
-                    linear_travel(s, velocity, strain)
+                    linact_grbl.linear_travel(s, velocity, strain)
                     print("step set ", step_indx)
-                    block_counter = block_counter + 1
-                    
+                block_counter = block_counter + 1
+
             loop_time = time.time() - start_loop_time
             print("loop_time-",loop_time)
-            # Read position
-            current_pos = read_pos(s)
-            current_time = time.time() - start_time
-            pos_data.append(current_pos)
-            time_data_pos.append(current_time)
 
             # Read resistance
             current_res, t_d = read_smu_res(ohmmeter,num_wire=meas_wires,mode=meas_mode)
@@ -627,6 +346,12 @@ def main():
             res_data_i.append(current_res[1])
             avg_time_data_res.append(t_avg)
             time_data_res.append(t_d)
+
+            # Read position
+            current_pos = linact_grbl.read_pos(s)
+            current_time = time.time() - start_time
+            pos_data.append(-current_pos)
+            time_data_pos.append(current_time)
 
             print("current_res:",current_res)
             print("current pos:",current_pos)
@@ -644,7 +369,7 @@ def main():
             # Read force
             t_s_force = time.time()
             raw_f_data = loadcell.read(2) # read 2 data points from buffer
-            force_avg = average_list(raw_f_data)
+            force_avg = data_ems.average_list(raw_f_data)
             if (force_avg > MAX_LOADCELL_FORCE):
                 raise NameError('Maximum force of {}N for loadcell exceeded'.format(MAX_LOADCELL_FORCE))
             t_f_force = time.time()
@@ -655,7 +380,7 @@ def main():
             time_data_force.append(current_time)
             # print(force_avg)
 
-            print("Step complete ", step_counter)
+            # print("Step complete ", step_counter)
 
         log_file = open("log.txt","a")
         log_file.write(str(datetime.date(datetime.now()))+'\n')
@@ -663,6 +388,7 @@ def main():
         log_file.write('filename='+filename+'\n')
         log_file.write('strain profile='+str(strain_profile)+'\n')
         log_file.write('velocity profile='+str(velocity_profile)+'\n')
+        log_file.write('Frequencies:'+str(freq_array)+' Amplitudes:'+str(ampl_array))
         log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+', Type='+str(meas_mode)+'\n')
         log_file.write('total time='+str(t_tot)+'\n')
         log_file.write('repeats='+str(repeats)+'\n')
@@ -670,7 +396,7 @@ def main():
         log_file.close()
 
         # Write data to CSV file
-        write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
+        data_ems.write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
             force_data, time_data_force)
         # write_PosResForce_to_CSV(filename,cap_data, esr_data, avg_time_data_cap, pos_data, time_data_pos,
         #     force_data, time_data_force)
@@ -692,13 +418,14 @@ def main():
             # ax2.plot(avg_time_data_cap, cap_data)
             # ax2.set(ylabel='Capacitance[Farads]')
 
-            ax3.plot(time_data_pos, float(pos_data))
+            ax3.plot(time_data_pos, pos_data)
             ax3.set(ylabel='Position[mm]')
 
             ax4.plot(time_data_force, force_data)
             ax4.set(xlabel='Time[s]', ylabel='Force[N]')
 
             plt.show()
+            input("press enter!")
             fig.savefig(filename)
 
     except Exception: # if test sequence stops abruptly log it and save data so far.
@@ -710,6 +437,7 @@ def main():
         log_file.write('filename='+filename+'\n')
         log_file.write('strain profile='+str(strain_profile)+'\n')
         log_file.write('velocity profile='+str(velocity_profile)+'\n')
+        log_file.write('Frequencies:'+str(freq_array)+' Amplitudes:'+str(ampl_array))
         log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+', Type='+str(meas_mode)+'\n')
         log_file.write('total time='+str(t_tot)+'\n')
         log_file.write('repeats='+str(repeats)+'\n')
@@ -717,12 +445,14 @@ def main():
         log_file.close()
 
     finally: # regardless of program success complete the following
-        write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
+        data_ems.write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
             force_data, time_data_force)
         # write_PosResForce_to_CSV(filename,cap_data, esr_data, avg_time_data_cap, pos_data, time_data_pos,
         #     force_data, time_data_force)
+
+        linact_grbl.init_motion_params(s) # Init Grbl and set travel displacement mode to relative
         # zero the specimen
-        auto_zero_cal(loadcell, s, 0.005)
+        linact_grbl.auto_zero_cal(loadcell, s, 0.005)
         print("Disconnecting serial and pyvisa connections...")
         # Close smu pyvisa connection
         ohmmeter.disconnect()

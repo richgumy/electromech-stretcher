@@ -268,17 +268,20 @@ for i in range(len(speeds)):
     legend_list.append("Strain speed = %d mm/s" % speeds[i])
 
 Res_load_arr = np.array(1)
-Res_load_arr = np.array(1)
+Strain_load_arr = np.array(1)
+t_load_arr = np.array(1)
 
 try:
     # fig2, ax = plt.subplots(figsize = (10, 5))
     # ax2 = ax.twinx()
-    for i in range(1,int(len(strain_splits)/16)): 
+    for i in range(int(len(strain_splits)/4)): 
         Res_load = Ri_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
-        Res_load_min = np.min(Res_load)
-        Res_load = Res_load - Res_load_min
+        # Res_load_min = np.min(Res_load)
+        # Res_load = Res_load - Res_load_min
+        Res_load_arr = np.append(Res_load_arr,Res_load)
 
         Strain_load = Strain_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
+        Strain_load_arr = np.append(Strain_load_arr,Strain_load)
 
         Stress_load = Stress_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
         Stress_load_min = np.min(Stress_load)
@@ -286,35 +289,42 @@ try:
 
         t_load = t_lin[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
         t_load = t_load - t_load[0]
+        t_load_arr = np.append(t_load_arr,t_load)
 
 
         ## Levenberg–Marquardt algorithm for non-linear leastsq, fitting the stress data to generalised SLS relaxation models
         # Strain fitting
-        poptS_gen, pcovS_gen = optimize.curve_fit(line, t_load, Strain_load, p0=pGen_init, maxfev=50000)
+        poptS_gen, pcovS_gen = optimize.curve_fit(line, t_load_arr, Strain_load_arr, p0=pGen_init, maxfev=50000)
         pGen_init = poptS_gen
-        t_load_lin = np.linspace(min(t_load),max(t_load) , len(Strain_load))
+        t_load_lin = np.linspace(min(t_load),max(t_load) , len(Strain_load_arr))
         Strain_load_lin_gen = line(t_load_lin,*poptS_gen)
         # poptS_gen[0] = poptS_gen[0] + Stress_load_min
         # consts_geni3.append(poptS_gen) # Store fitted parameters of each relaxation
         
         # Resistance fitting
-        poptS_gen_R, pcovS_gen_R = optimize.curve_fit(poly2, t_load, Res_load, p0=pGen_init_R, maxfev=50000)
+        poptS_gen_R, pcovS_gen_R = optimize.curve_fit(poly2, t_load_arr, Res_load_arr, p0=pGen_init_R, maxfev=50000)
         pGen_init_R = poptS_gen_R
-        Res_load_lin_gen = poly2(t_load_lin,*poptS_gen_R) + Res_load_min
+        Res_load_lin_gen = poly2(t_load_lin,*poptS_gen_R)
         # poptS_gen_R[0] = poptS_gen_R[0] + Res_load_min
         # consts_geni3_R.append(poptS_gen_R) # Store fitted parameters of each relaxation
-                
-        fig2, ax = plt.subplots(figsize = (10, 5))
-        ax2 = ax.twinx()
-        ax.plot(t_load,100*Strain_load,'rx',t_load_lin,100*Strain_load_lin_gen,'r-')
-        ax2.plot(t_load,Res_load + Res_load_min,'bx',t_load_lin,Res_load_lin_gen,'b-')
-        # ax.plot(t_load_lin,100*Strain_load_lin_gen,'-',color=colours[i])
-        # ax2.plot(t_load_lin,Res_load_lin_gen,'-',color=colours[i])
-        ax.set_xlabel('Time[s]')
-        ax.set_ylabel('Strain [%]',color='r')
-        ax2.set_ylabel('Resistance [Ohm]',color='b')
-        # ax.legend(legend_list)
-        plt.tight_layout()
+        
+        if (i+1) % 8 == 0:
+            fig2, ax = plt.subplots(figsize = (10, 5))
+            ax2 = ax.twinx()
+            ax.plot(t_load_arr,100*Strain_load_arr,'rx')#,t_load_lin,100*Strain_load_lin_gen,'r-')
+            ax2.plot(t_load_arr,Res_load_arr,'bx')#,t_load_lin,Res_load_lin_gen,'b-')
+            # ax.plot(t_load_lin,100*Strain_load_lin_gen,'-',color=colours[i])
+            # ax2.plot(t_load_lin,Res_load_lin_gen,'-',color=colours[i])
+            ax.set_xlabel('Time[s]')
+            ax.set_ylabel('Strain [%]',color='r')
+            ax2.set_ylabel('Resistance [Ohm]',color='b')
+            # ax.legend(legend_list)
+            plt.tight_layout()
+            
+            # Re-initialise after plotting four of the same velocity
+            Res_load_arr = np.array(1)
+            Strain_load_arr = np.array(1)
+            t_load_arr = np.array(1)
         
         ## Plot dstress/dt vs dR/dt
         # dStress_load_dt = np.diff(Strain_load)/np.diff(t_load_lin)
