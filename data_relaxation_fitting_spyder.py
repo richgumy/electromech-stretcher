@@ -111,7 +111,7 @@ spec_length = 40e-3
 spec_width = 10e-3
 spec_thickness = 4e-3
 
-input_filename = "2_7-5_Epin_20mm_v3.csv"
+input_filename = "2_7-5_E4pin_20mm_v13_0.1_0.2_0.3_strain.csv"
 
 R = np.array([])
 Ri = np.array([])
@@ -194,11 +194,16 @@ P_t = np.interp(t_lin,t_,P_)
 R_t = np.interp(t_lin,t_,R_)
 Ri_t = np.interp(t_lin,t_,Ri_)
 
-# Calc strain from displacement
-Strain_t = -P_t/(spec_length*1000) # dx/x
-# Calc stress from force and changing strain
+# Calc engineering strain from displacement
+Strain_t = -P_t/(spec_length*1000) #dx/x
+
+# Calc actual strain
+Strain_true_t = np.log((-P_t/1000+spec_length)/(spec_length))
+
+# Calc actual stress from force and changing strain
 poisson_ratio = 0.29 # Poisson's ratio. Found experimentally using #2_7.5%dragonskin10NV specimen
 Stress_t = F_t/((spec_width*spec_thickness)*(-Strain_t*poisson_ratio+1)*(-Strain_t*poisson_ratio+1)) # force/cross-sectional-area
+Stress_true_t = (F_t/spec_width*spec_thickness) * (1+Strain_t)
 
 # Determine strain gauge factor dRes/dStrain
 Gauge_factor = ((Ri_t - min(Ri_t))/Ri_t)
@@ -213,27 +218,27 @@ for i in range(len(Gauge_factor)):
 fig1, axs1 = plt.subplots(4, 1, constrained_layout=True)
 
 ax = axs1[0]
-ax.plot(t_lin, R_t,'r-')
+ax.plot(t_lin, Stress_true_t,'r-')
 ax.set_title('')
-ax.set_ylabel('Resistance_outer [Ohm]')
+ax.set_ylabel('True stress [Ohm]')
 ax.grid(True)
 
 ax = axs1[1]
-ax.plot(t_lin, Ri_t,'r-')
+ax.plot(t_lin, Convert,'r-')
 ax.set_title('')
-ax.set_ylabel('Resistance_inner [Ohm]')
+ax.set_ylabel('Eng stress [Ohm]')
 ax.grid(True)
 
 ax = axs1[2]
-ax.plot(t_lin, Gauge_factor_t,'r-')
+ax.plot(t_lin, Strain_true_t,'r-')
 ax.set_title('')
-ax.set_ylabel('Gauge Factor')
+ax.set_ylabel('True strain')
 ax.grid(True)
 
 ax = axs1[3]
 ax.plot(t_lin, Strain_t,'r-')
 ax.set_title('')
-ax.set_ylabel('Strain')
+ax.set_ylabel('Eng strain')
 ax.grid(True)
 
 

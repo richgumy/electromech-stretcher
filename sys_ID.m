@@ -1,6 +1,6 @@
 %% Dataset 1
 
-raw_data = readtable('INTERP_2_7-5_E4pin_20mm_v9_0.2Strain_velocityprof.csv');
+raw_data = readtable('INTERP_multisine_600s_1.csv');
 
 Ro = table2array(raw_data(:,1));
 Ri = table2array(raw_data(:,2));

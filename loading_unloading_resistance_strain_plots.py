@@ -131,7 +131,7 @@ def pos_outlier_corrector(strain_arr):
     """
     new_strain_arr = strain_arr
     for i in range(1,len(strain_arr)):
-        if abs(strain_arr[i] - strain_arr[i-1]) > 3:
+        if abs(strain_arr[i] - strain_arr[i-1]) > 1:
             new_strain_arr[i] = strain_arr[i-1]
     return new_strain_arr
 
@@ -159,8 +159,12 @@ spec_width = 10e-3
 spec_thickness = 4e-3
 
 # input_filename = "1_CB0_v1_0.3Strain.csv"
-input_filename = "2_7-5_E4pin_20mm_v13_0.1_0.2_0.3_strain.csv"
+# input_filename = "2_7-5_E4pin_20mm_v13_0.1_0.2_0.3_strain.csv"
 # input_filename = "1_10_E4pin_20mm_v9_0.3Strain.csv"
+# input_filename = "2_7-5_4Epin_rand_sawtooth.csv"
+# input_filename = "2_7-5_E4pin_20mm_v19_0.3Strain.csv"
+# input_filename = "2_7-5_4Epin_20mm_quasistatic_v1.csv"
+input_filename = "2_7-5_4Epin_20mm_10prestrain3.csv"
 
 # Extract from csv
 if (input_filename[-4:] != '.csv'): input_filename = input_filename + '.csv' # Assume file is .csv if not explicitly stated in main parameter input
@@ -249,7 +253,7 @@ Ri_t = np.interp(t_lin,t_,Ri_)
 Ri_t = abs(MAF(Ri_t,8))
 
 # Calc strain from displacement
-Strain_t = -P_t/(spec_length*1000) # dx/x
+Strain_t = abs(P_t/(spec_length*1000)) # dx/x
 
 # Calc stress from force and changing strain
 poisson_ratio = 0.29 # Poisson's ratio. Found experimentally using #2_7.5%dragonskin10NV specimen
@@ -302,16 +306,23 @@ ax.grid(True)
 
 ## Plot relaxation and fit curve
 # Split data into piece-wise data
-strain_splits = split_ramp_data(Strain_t)
-for i in range(len(strain_splits)):
-    print(t_lin[strain_splits[i]])
+# strain_splits = split_ramp_data(Strain_t)
+# for i in range(len(strain_splits)):
+#     print(t_lin[strain_splits[i]])
 
-# strain_splits = []
+strain_splits = []
 # for i in range(9):
 #     strain_splits.append(i*160+4)
 #     strain_splits.append(i*160+4)
 
 # strain_splits = [0,0,161,161,322,322,403,403,483,483,536,536,590,590]
+time_splits = [0, 24.2, 42.31, 51, 60.66, 66.9, 73.16, 77.9, 82.66, 100.77, 118.88, 128.2, 137.2, 143.45, 149.7, 154.95, 159.7, 177.81, 195.9, 205.2, 214.4, 220.61, 226.86, 231.11, 236.2] # add more
+for i in range(len(time_splits)):
+    strain_splits.append(time_splits[i]/(t_lin[1]-t_lin[0]))
+    strain_splits.append(time_splits[i]/(t_lin[1]-t_lin[0]))
+
+for i in range(len(strain_splits)):
+    strain_splits[i] = strain_splits[i].astype(int)
 
 # take chunks of stress and resistance relaxing values from index i1 to i2
 i1 = []
@@ -333,14 +344,14 @@ p_init = [1,1]
 constsu_lin_fit = []
 pu_init = [1,1]
 
-start_offset = 20 # index offsets
-end_offset = 20
+start_offset = 0 # index offsets
+end_offset = 0
 
+plot_counter = 0
 
 try:
     fig3, ax3 = plt.subplots(figsize=(16,8))
-    for i in range(1,int(len(strain_splits)/4)):
-    # for i in range(1):
+    for i in range(0,int(len(strain_splits)/4)):
         Strain_load = Strain_t[int(strain_splits[4*i+1])-start_offset:int(strain_splits[4*i+2])+end_offset]
         Strain_unload = Strain_t[int(strain_splits[4*i+3])-start_offset:int(strain_splits[4*i+4])+end_offset]
 
@@ -366,14 +377,19 @@ try:
         constsu_lin_fit.append(poptSu) # Store fitted parameters of each relaxation
         
         ## Plot res-strain loading/unloading of specimen
+        plot_counter = plot_counter + 1
+        if plot_counter == 5:
+            plot_counter = 1
+        plot_colour = {1:'#ff0000',2:'#00ff00',3:'#0000ff',4:'0.3',5:'#ff4444',6:'#44ff44',7:'#4444ff',8:'0.7'}           
+            
         # fig3, ax3 = plt.subplots(figsize=(16,8))
         # Loading
-        line_load, = ax3.plot(100*Strain_load,Res_load,color='r',marker='',ls='-')
+        line_load, = ax3.plot(100*Strain_load,Res_load,color=plot_colour[plot_counter],marker='',ls='-')
         # ax3.plot(Strain_load_lin,Res_load_lin,color='y',ls='-')
         # Unloading
-        line_unload, = ax3.plot(100*Strain_unload,Res_unload,color='b',marker='',ls='-')
+        line_unload, = ax3.plot(100*Strain_unload,Res_unload,color=plot_colour[4+plot_counter],marker='',ls='-')
         # ax3.plot(Strain_unload_lin,Res_unload_lin,color='g',ls='-')
-        ax3.legend(["Loading", "Unloading"])
+        # ax3.legend(["Loading", "Unloading"])
         
         # line_load, = ax3.plot(100*Strain_t,Ri_t,color='r',marker='',ls='-')
         ax3.set_ylabel('Resistance [Ohm]')
@@ -386,3 +402,12 @@ try:
 finally:
 
     plt.show()
+
+## Plot colour gradient that matches dStrain_dt
+# for i in range(len(t_lin)-1):
+#     hex_mid = str(hex(int(dS_dt_colour[i])))[2:]
+#     if len(hex_mid) == 1:
+#         hex_mid = "0" + hex_mid
+#     hex_clr = "#ff" + hex_mid + "00"
+#     print(clr)
+#     line_load, = ax3.plot(Strain_t[i],Ri_t[i],color=hex_clr,marker='.')

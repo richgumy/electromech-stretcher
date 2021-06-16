@@ -72,7 +72,7 @@ spec_length = 40e-3
 spec_width = 10e-3
 spec_thickness = 4e-3
 
-input_filename = "1_CB0_v1_0.3Strain.csv"
+input_filename = "2_7-5_E4pin_20mm_v19_0.3Strain.csv"
 # input_filename = "2_7-5_E4pin_20mm_v10_0.3Strain.csv"
 # input_filename = "1_10_E4pin_20mm_v9_0.3Strain.csv"
 

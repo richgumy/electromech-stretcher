@@ -131,7 +131,7 @@ def main():
     print("Connecting to grbl device...")
     init_motion_params(s) # Init Grbl
     jog_x = input("Enter jog displacement in mm, x:")
-    jog_v = input("Enter jog speed in mm/s, v:")
+    jog_v = input("Enter jog speed in mm/min, v:")
     while(jog_x != 'q'):
         linear_travel(s, str(jog_v), str(jog_x)) # (s, "speed" , "dist")
         jog_x = input("x:")

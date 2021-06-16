@@ -38,7 +38,7 @@ from nidaqmx.constants import Edge
 from nidaqmx.constants import AcquisitionType
 from k2600 import K2600 # see k2600.py for usage
 import k2600
-from cmeter350610 import Cmeter350610
+# from cmeter350610 import Cmeter350610
 
 MAX_LOADCELL_FORCE = 6.5 # Maximum loadcell force in Newtons
 
@@ -149,6 +149,56 @@ def sinusoid_maker(amplitude_strain, freq, offset_strain,delta_t):
             dx_dt[i-1] = dx_dt[i]
         x_prev = x[i]
     return t, x, dx_dt
+
+def rand_multisine_generator(num_sines, freq_range, amp_range, t_tot, delta_t, max_amp):
+    """
+    DESCR: Geenerate a quantised multisinusoidal strain waveform
+    IN_PARAMS: number of sinusoids, range of sinusoid amplitudes [mm] in form [min,max],
+    frequency range of sinusoids [Hz] in form [min,max], total duration of multisine
+    OUTPUT: time, strain and velocity profiles. Amplitude and frequency arrays
+    NOTES:    Requires libraries: serial and Grbl and random
+              Requires serial_handle e.g. serial_handle = serial.Serial("COM4",115200)
+              Cannot produce compresive strain only tensile
+              Can use the amplitude and frequency arrays to confirm that FFT on the data makes sense
+    TODO:
+     1. Make all generated start from zero
+        -> move extremely slowly at a constant speed to the start point of waveform strain
+            OR time shift all sinusoids apart from one
+            OR shift to start point and wait for resistance to relax until starting experiment
+    """
+    ampl_array = np.zeros(num_sines)
+    freq_array = np.zeros(num_sines)
+
+    # makes a 't' array of correct size
+    t, test_sine, test_v_sine = sinusoid_maker(1, 1, 1, t_tot, delta_t)
+
+    sine_array = np.zeros([num_sines, len(t)])
+    sine_velocity_array = np.zeros([num_sines, len(t)])
+
+    # generate a set number of 'random' sinusoids
+    for i in range(num_sines):
+        ampl_array[i] = round(random.uniform(amp_range[0],amp_range[1]))
+        freq_array[i] = round(random.uniform(freq_range[0],freq_range[1]))
+        t, sine_array[i], sine_velocity_array[i] = sinusoid_maker(ampl_array[i], freq_array[i], ampl_array[i], t_tot)
+
+    # sum all sines and ensure min value is set to zero.
+    sine_array_tot = sum(sine_array) - min(sum(sine_array))
+    sine_velocity_tot = sum(sine_velocity_array) - min(sum(sine_velocity_array))
+
+    # scale down sine array such that the max. value is equal to max_amp
+    scale_factor = max(sine_array_tot) / max_amp
+    sine_array_tot = sine_array_tot / scale_factor
+    sine_velocity_tot = sine_velocity_tot / scale_factor
+
+    print("Characteristics of sinusoids:")
+    print("Amplitudes:", ampl_array)
+    print("Frequencies:", freq_array)
+    print("Scale_factor:", scale_factor)
+    print("Max. speed:",max(sine_velocity_tot))
+    print("Max. strain:",max(sine_array_tot))
+    input("Press Ctrl+C if these values are not ok, else press Enter")
+
+    return t, sine_array_tot, sine_velocity_tot, ampl_array, freq_array
 
 
 def linear_travel(serial_handle, lin_speed="60", displacement="1"):
@@ -392,8 +442,8 @@ def auto_zero_cal(loadcell_handle, serial_handle, tolerance):
     buf_size = 40
     f_buf = [0]*buf_size
     speed = 180
-    Kp = 4 # control P gain constant
-    Ki = 0.5 # control I gain constant
+    Kp = 3 # control P gain constant
+    Ki = 0.3 # control I gain constant
     while abs(error) > tolerance:
         for i in range(buf_size):
             raw_data = loadcell_handle.read(2) # read 1 data point
@@ -423,7 +473,8 @@ def main():
     # s = serial.Serial(avail_devs[device_index],115200,timeout=2) # Connect to port. GRBL operates at 115200 baud
     s = serial.Serial("COM8",115200,timeout=2) #comment this and uncomment above for interactive choice of com port
     print("Connecting to grbl device...")
-    init_motion_params(s,dist_mode="abs") # Init Grbl and set travel displacement mode to absolute
+    max_acc = '20' # Ensure a sufficiently low acceleration
+    init_motion_params(s,max_accel=max_acc,dist_mode="abs") # Init Grbl and set travel displacement mode to absolute
 
     # set csv file name for data capture
     filename = input("File name? !Caution will overwrite files without warning!\n (e.g sample number+CB %+electrode type+distance between electrodes+repetitions of test=\n=samp1_CB7-5_Epin_20mm_v2):")
@@ -434,7 +485,7 @@ def main():
     # print(available_devs)
     # device_index = input("Which device address from the list? (eg. index 0 or 1 or 2 or ...):")
     # ohmmeter = K2600(available_devs[int(device_index)])
-    ohmmeter = K2600(available_devs[3])
+    ohmmeter = K2600(available_devs[4])
     meas_wires = 4 # is it a 2 or 4 wire resistance measurement?
     I_src = 10e-6 # constant current source value
     V_max = 20 # max current source value
@@ -452,15 +503,15 @@ def main():
     pos_data = []
     time_data_pos = []
 
-    # res_data_o = []
-    # res_data_i = []
-    # time_data_res = []
-    # avg_time_data_res = []
+    res_data_o = []
+    res_data_i = []
+    time_data_res = []
+    avg_time_data_res = []
 
-    cap_data = []
-    esr_data = []
-    time_data_cap = []
-    avg_time_data_cap = []
+    # cap_data = []
+    # esr_data = []
+    # time_data_cap = []
+    # avg_time_data_cap = []
 
     force_data = []
     time_data_force = []
@@ -472,34 +523,20 @@ def main():
     ####################################
     ### Set velocity profile params: ###
     ####################################
-    # step_profile = [0,-8,-8,0,0,-8,-8,0,0,-8,-8,0,0,-8,-8,0]
+    step_profile = [-20,-8]
     # step_profile = [0,0,0,-4,-4,-8,-8,-12,-12,-8,-8,-4,-4,0,0,-4,-4,0,0,-8,-8,0,
     # 0,-12,-12,0,0,-8,-8,0,0,-4,-4]
     # step_profile = [-6,0]
-    step_profile = [0]
+    # step_profile =  [0,0,-1,-2,-3,-4,-5,-6,-7,-8,-9,-10,-11,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,
+    # -1,0,-2,0,-3,0,-4,0,-5,0,-6,0,-7,0,-8,0,-9,0,-10,0,-11,0,-12,0,-11,0,-10,0,-9,0,-8,0,-7,0,-6,0,-5,
+    # 0,-4,0,-3,0,-2,0,-1,0]
+    step_profile =  [0,0,-2,-4,-6,-8,-10,-12,-10,-8,-6,-4,-2,0,0,-2,0,-4,0,-6,0,-8,0,-10,0,-12,0,-10,0,-8,0,-6,0,-4,0,-2]
     repeats = 2
-    # velocity_profile = [40,80,120,160]
-    velocity_profile = [90]
-    # velocity_profile = [40,80,120]
+    # velocity_profile = [40]
+    velocity_profile = [40,80,120,160]
 
-    ## For a sinusoidal strain waveform input
-    # ## Assuming starting at 0% strain
-    # amp_strain = 4 # 1/2 the peak to peak value
-    # offset_strain = 0 # offset of 0 will default be changed to offset_strain=amp_strain
-    # freq_strain = 0.2 # freq in Hz
-    # #
-    # t_sine, step_profile, velocity_profile = sinusoid_maker(amp_strain, freq_strain, offset_strain, 0.05)
-    # step_profile = -step_profile
-    # velocity_profile = abs(velocity_profile)*60
-    # repeats = 3
-    # expected_time = 1/freq_strain #expected time taken per repetition
-    #
-    # plt.plot(t_sine,step_profile,'x')
-    # plt.plot(t_sine,velocity_profile,'x')
-    # plt.legend(["step_profile", "velocity_profile"])
-    # plt.show()
 
-    # relax_delay = 60 # amount of time(s) to record the resistive and stress relaxation
+    relax_delay = 1200 # amount of time(s) to record the resistive and stress relaxation
     ####################################
     ### End velocity profile params: ###
     ####################################
@@ -518,11 +555,11 @@ def main():
                     # step = step_profile[step_indx]
                     # velocity = velocity_profile[step_indx]
                     # Randomly select a strain magnitude and velocity
-                    step = int(random.uniform(0,len(step_profile)))
-                    velocity = int(random.uniform(0,len(velocity_profile)))
+                    # step = int(random.uniform(-1,-12))
+                    # velocity = int(random.uniform(10,200))
 
                     linear_travel(s, velocity, step)
-                    # print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
+                    print("Linear motion set! %dmm @ %dmm/s" % (step,velocity))
                     current_pos = 0 # init for while loop condition
                     # lag_start = 0 # to capture data from just after the strain has stopped
                     # lag = 0
@@ -534,18 +571,18 @@ def main():
                     iter_min = len(diff_buf)*1.5
                     start_loop_time = time.time()
                     loop_time = 0.0
-                    max_loop_time = 0.0 # in seconds
+                    max_loop_time = relax_delay # in seconds
                     pos_err_tol = 0.01
                     pos_err = 10 # init pos_err as an appropriately high value
                     # while (abs(diff_avg) > diff_min) and ((iter < iter_max) or (iter > iter_min)) : # mmmmhmmm magic numbers 2 stop conditions -> (100ohms/sec,2000iter*0.07s/iter=140s)
-                    # while (loop_time < max_loop_time): # assume all relaxations reach steady state by 'max_loop_time' -> total time = max_loop_time*repeats
-                    while ((pos_err > pos_err_tol) or (loop_time < max_loop_time)):
+                    while (loop_time < max_loop_time): # assume all relaxations reach steady state by 'max_loop_time' -> total time = max_loop_time*repeats
+                    # while (pos_err > pos_err_tol):
                         loop_time = time.time() - start_loop_time
                         print("loop_time-",loop_time)
                         # Read position
                         current_pos = read_pos(s)
                         current_time = time.time() - start_time
-                        pos_data.append(current_pos)
+                        pos_data.append(-current_pos)
                         time_data_pos.append(current_time)
 
                         # Read resistance
@@ -607,6 +644,7 @@ def main():
         log_file.write('filename='+filename+'\n')
         log_file.write('step profile='+str(step_profile)+'\n')
         log_file.write('velocity profile='+str(velocity_profile)+'\n')
+        log_file.write('max acceleration='+str(max_acc)+'\n')
         log_file.write('MEASUREMENT:\n num wires='+str(meas_wires)+', Isrc='+str(I_src)+', Vmax='+str(V_max)+', Type='+str(meas_mode)+'\n')
         log_file.write('diff_min(convergence checker)='+str(diff_min)+'\n')
         log_file.write('iter_max(convergence timeout)='+str(iter_max)+'\n')
@@ -639,13 +677,14 @@ def main():
             # ax2.plot(avg_time_data_cap, cap_data)
             # ax2.set(ylabel='Capacitance[Farads]')
 
-            ax3.plot(time_data_pos, float(pos_data))
+            ax3.plot(time_data_pos, pos_data)
             ax3.set(ylabel='Position[mm]')
 
             ax4.plot(time_data_force, force_data)
             ax4.set(xlabel='Time[s]', ylabel='Force[N]')
 
             plt.show()
+            input("press enter!")
             fig.savefig(filename)
 
     except Exception: # if test sequence stops abruptly log it and save data so far.
@@ -667,10 +706,13 @@ def main():
         log_file.close()
 
     finally: # regardless of program success complete the following
-        # write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
-        #     force_data, time_data_force)
-        write_PosResForce_to_CSV(filename,cap_data, esr_data, avg_time_data_cap, pos_data, time_data_pos,
+        write_PosResForce_to_CSV(filename,res_data_o, res_data_i, avg_time_data_res, pos_data, time_data_pos,
             force_data, time_data_force)
+        # write_PosResForce_to_CSV(filename,cap_data, esr_data, avg_time_data_cap, pos_data, time_data_pos,
+        #     force_data, time_data_force)
+
+        # Init Grbl and set travel displacement mode to relative
+        init_motion_params(s)
         # zero the specimen
         auto_zero_cal(loadcell, s, 0.005)
         print("Disconnecting serial and pyvisa connections...")

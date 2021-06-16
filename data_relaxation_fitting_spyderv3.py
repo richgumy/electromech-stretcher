@@ -5,7 +5,7 @@ DATE: Dec 2020
 PROGRAM DESC: Fit a relaxation model to stress relaxation data.
 
 TODO:
-1)
+1) Make a function describing the non-linear nature of the poisson's ratio
 2)
 """
 
@@ -62,7 +62,7 @@ def MAF(x,N):
 def pos_outlier_corrector(strain_arr):
     new_strain_arr = strain_arr
     for i in range(1,len(strain_arr)):
-        if abs(strain_arr[i] - strain_arr[i-1]) > 3:
+        if abs(strain_arr[i] - strain_arr[i-1]) > 1:
             new_strain_arr[i] = strain_arr[i-1]
     return new_strain_arr
 
@@ -75,7 +75,7 @@ spec_length_inner_electrodes = 20e-3
 spec_width = 10e-3
 spec_thickness = 4e-3
 
-input_filename = "2_7-5_E2pin_20mm_capac_relax.csv"
+input_filename = "2_7-5_4Epin_20mm_quasistatic_v2.csv"
 
 # Extract from csv
 if (input_filename[-4:] != '.csv'): input_filename = input_filename + '.csv' # Assume file is .csv if not explicitly stated in main parameter input
@@ -161,40 +161,49 @@ for i in range(len(tF_tot)):
 # Interpolate again to get time in a linear form
 t_lin = np.linspace(min(t_),max(t_),int(len(t_)/3)) # divide by 3 to get original size of data
 F_t = np.interp(t_lin,t_,F_)
-P_t = np.interp(t_lin,t_,P_)
-R_t = np.interp(t_lin,t_,R_)
-Ri_t = -np.interp(t_lin,t_,Ri_)
+P_t = abs(np.interp(t_lin,t_,P_))
+R_t = abs(np.interp(t_lin,t_,R_))
+Ri_t = abs(np.interp(t_lin,t_,Ri_))
 
 # Use a MAF on the resistance data if it is an AC measurement
 Ri_t = MAF(Ri_t,12)
 
-# Calc strain from displacement
-Strain_t = -P_t/spec_length # dx/x
+
+# Calc engineering strain from displacement
+Strain_t = P_t/(spec_length) #dx/x
+# Calc true strain
+Strain_true_t = np.log((P_t+spec_length)/(spec_length))
+
+# Calc engineering stress
+A_0 = spec_width * spec_thickness
+Stress_eng_t = F_t/A_0
 # Calc stress from force and changing strain
 poisson_ratio = 0.29 # Poisson's ratio. Found experimentally using #2_7.5%dragonskin10NV specimen
 A_t = ((spec_width*spec_thickness)*(-Strain_t*poisson_ratio+1)*(-Strain_t*poisson_ratio+1))
-Stress_t = F_t/A_t # force/cross-sectional-area
+Stress_pois_t = F_t/A_t # My approximation of true stress, with Poisson's ratio
+# Common calc for the approximation of true strain
+Stress_true_t = (F_t/A_0) * (1+Strain_t)
+
 resistivity_t = (Ri_t*A_t)/((1+Strain_t)*spec_length_inner_electrodes)
 
-## Write interpolated and partially processed data to csv ##
-## COMMENT OUT WHEN NOT REQUIRED ##
+# Write interpolated and partially processed data to csv ##
+# COMMENT OUT WHEN NOT REQUIRED ##
 with open('INTERP_'+input_filename, 'w', newline='') as csvfile:
     data = csv.writer(csvfile, delimiter=',')
     for i in range(len(t_lin)):
-        data.writerow([R_t[i],Ri_t[i], resistivity_t[i], Strain_t[i], Stress_t[i], t_lin[i]])
+        data.writerow([R_t[i],Ri_t[i], resistivity_t[i], Strain_t[i], Stress_pois_t[i], t_lin[i]])
 
 # Determine strain gauge factor dRes/dStrain
-Gauge_factor = ((Ri_t - min(Ri_t))/Ri_t)
-Gauge_factor_t = np.zeros(len(Ri_t))
-for i in range(len(Gauge_factor)):
-    if Strain_t[i] == 0:
-        Gauge_factor_t[i] = 0
-    else:
-        Gauge_factor_t[i]  = Gauge_factor[i] / Strain_t[i]
+# Gauge_factor = ((Ri_t - min(Ri_t))/Ri_t)
+# Gauge_factor_t = np.zeros(len(Ri_t))
+# for i in range(len(Gauge_factor)):
+#     if Strain_t[i] == 0:
+#         Gauge_factor_t[i] = 0
+#     else:
+#         Gauge_factor_t[i]  = Gauge_factor[i] / Strain_t[i]
 
 # Plot measurements over time
-fig1, axs1 = plt.subplots(4, 1, constrained_layout=True,figsize = (10, 10))
-
+fig1, axs1 = plt.subplots(3, 1, constrained_layout=True,figsize = (10, 10))
 
 ax = axs1[0]
 ax.plot(t_lin, Ri_t,'r-')#),t_lin, Ri_t_fil,'b-')
@@ -203,25 +212,27 @@ ax.set_ylabel('Resistance [Ohm]')
 ax.grid(True)
 
 ax = axs1[1]
-ax.plot(t_lin, Stress_t,'r-')
+ax.plot(t_lin, Stress_eng_t,'r-',t_lin, Stress_pois_t,'b-',t_lin, Stress_true_t,'g-')
 ax.set_title('')
+ax.legend(("Eng","Poisson","True"), loc='upper right')
 ax.set_ylabel('Stress [Pa]')
 ax.grid(True)
 
 ax = axs1[2]
-ax.plot(t_lin, Strain_t,'r-')
+ax.plot(t_lin, Strain_t,'r-',t_lin, Strain_true_t,'b-')
 ax.set_title('')
+ax.legend(("Eng","True"), loc='upper right')
 ax.set_ylabel('Strain')
 ax.set_xlabel('Time [s]')
 ax.grid(True)
 
-ax = axs1[3]
-ax.plot(t_lin, resistivity_t,'r-')
-ax.set_title('')
-ax.set_ylabel('Resistivity [Ohm.m]') # Res-strain time delay may affect data significantly?
-ax.grid(True)
+# ax = axs1[3]
+# ax.plot(t_lin, resistivity_t,'r-')
+# ax.set_title('')
+# ax.set_ylabel('Resistivity [Ohm.m]') # Res-strain time delay may affect data significantly?
+# ax.grid(True)
 
-## Plot relaxation and fit curve
+# Plot relaxation and fit curve
 # Split data into piece-wise data
 strain_splits = split_ramp_data(Strain_t)
 for i in range(len(strain_splits)):
@@ -255,10 +266,13 @@ consts_geni3 = []
 pGen_init = [1,1,1,1,1]
 # Resistance modelling
 consts_geni3_R = []
-pGen_init_R = [1,1,1,1,1,1,1]
+pGen_init_R = [1,1,1,1,1]
 
 start_offset = 6 # index offset to compensate for time lag between strain change and resistance/stress
 end_offset = 1
+
+quasi_stat_R = []
+quasi_stat_S = []
 
 try:
     # fig1, ax1 = plt.subplots()
@@ -269,7 +283,7 @@ try:
 
         Strain_load = Strain_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
 
-        Stress_load = Stress_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
+        Stress_load = Stress_pois_t[int(strain_splits[i1[i]])+start_offset:int(strain_splits[i2[i]])-end_offset]
         Stress_load_min = np.min(Stress_load)
         Stress_load = Stress_load - Stress_load_min
 
@@ -287,20 +301,23 @@ try:
         consts_geni3.append(poptS_gen) # Store fitted parameters of each relaxation
         
         # Resistance fitting
-        poptS_gen_R, pcovS_gen_R = optimize.curve_fit(generalisedi3, t_load, Res_load, p0=pGen_init_R, maxfev=50000)
+        poptS_gen_R, pcovS_gen_R = optimize.curve_fit(generalisedi2, t_load, Res_load, p0=pGen_init_R, maxfev=50000)
         pGen_init_R = poptS_gen_R
-        Res_load_lin_gen = generalisedi3(t_load_lin,*poptS_gen_R) + Res_load_min
+        Res_load_lin_gen = generalisedi2(t_load_lin,*poptS_gen_R) + Res_load_min
         poptS_gen_R[0] = poptS_gen_R[0] + Res_load_min
         consts_geni3_R.append(poptS_gen_R) # Store fitted parameters of each relaxation
                 
-        # fig2, ax = plt.subplots(figsize = (10, 5))
-        # ax2 = ax.twinx()
-        # ax.plot(t_load,Stress_load + Stress_load_min,'rx',t_load_lin,Stress_load_lin_gen,'y-')
-        # ax2.plot(t_load,Res_load + Res_load_min,'bx',t_load_lin,Res_load_lin_gen,'y-')
-        # ax.set_xlabel('Time[s]')
-        # ax.set_ylabel('Stress [Pa]',color='r')
-        # ax2.set_ylabel('Resistance [Ohm]',color='b')
-        # plt.tight_layout()
+        fig2, ax = plt.subplots(figsize = (10, 5))
+        ax2 = ax.twinx()
+        ax.plot(t_load,Stress_load + Stress_load_min,'rx',t_load_lin,Stress_load_lin_gen,'y-')
+        ax2.plot(t_load,Res_load + Res_load_min,'bx',t_load_lin,Res_load_lin_gen,'y-')
+        ax.set_xlabel('Time[s]')
+        ax.set_ylabel('Stress [Pa]',color='r')
+        ax2.set_ylabel('Resistance [Ohm]',color='b')
+        plt.tight_layout()
+        
+        quasi_stat_R.append(Res_load[-1] + Res_load_min)
+        quasi_stat_S.append(Strain_load[-1])
 
 
         
