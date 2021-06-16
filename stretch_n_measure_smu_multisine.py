@@ -1,5 +1,5 @@
 """
-FILE: stretch_n_measure_smu.py
+FILE: stretch_n_measure_smu_multisine.py
 AUTHOR: R Ellingham
 DATE MODIFIED: Apr 2021
 PROGRAM DESC: Gather data from a stretched conductive elastomer in real time
@@ -22,13 +22,9 @@ TODO:
 """
 
 
-# import random
 import sys, traceback
-# import csv
 import matplotlib.pyplot as plt
-# import numpy as np
 import serial
-# import serial.tools.list_ports
 import time
 from datetime import datetime
 import re
@@ -312,20 +308,16 @@ def main():
         print("time to start:",(strain_profile[0]/speed2start)*60)
 
         while (loop_time < t_tot):
-            # print("current_time: ",current_time)
-            # print("block_counter: ",block_counter)
-            # print("delta_t? ",((current_time - (abs(strain_profile[0]/speed2start)*60)) - 20*delta_t*(block_counter)))
-            # print("delta_t:", delta_t)
-            # # Send one lot of 20 steps every ~19 steps taken. Multiplied by 10 to round the time to the
-            # #   nearest 100 millisecond. Current time minus the time taken to get to the start point.
-            # #   Threshold for starting next block is when the 19th step is being executed
-            if abs((current_time - (abs(strain_profile[0]/speed2start)*60)) - 19*delta_t*(block_counter)) < delta_t:
+            # Send one lot of 20 steps every ~19 steps taken. Multiplied by 10 to round the time to the
+            #   nearest 100 millisecond. Current time minus the time taken to get to the start point.
+            #   Threshold for starting next block is when the 18th step is being executed
+            if abs((current_time - (abs(strain_profile[0]/speed2start)*60)) - 18*delta_t*(block_counter)) < delta_t:
                 blk_s = 20*block_counter
                 blk_f = 20*(block_counter+1)
 
-                if (blk_f > len(strain_profile)): # stop out of bounds indexing
+                if (blk_f > len(strain_profile)): # stop any out of bounds indexing
                     blk_f = len(strain_profile)
-                if (blk_s > len(strain_profile)): # stop out of bounds indexing
+                if (blk_s > len(strain_profile)): # stop any out of bounds indexing
                     blk_s = len(strain_profile)
 
                 for step_indx in range(blk_s,blk_f): # 20 seems to be the grbl buffer size
